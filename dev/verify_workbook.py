@@ -1,9 +1,10 @@
 """Cross-check the recalculated workbook against the pure-Python reference model."""
-import sys
+import os, sys
 from openpyxl import load_workbook
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "python"))
 from reference_model import DEFAULTS, simulate
 
-path = sys.argv[1] if len(sys.argv) > 1 else "Forwards_Market_Making_Simulator.xlsx"
+path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "excel", "Forwards_Market_Making_Simulator.xlsx")
 ws = load_workbook(path, data_only=True)["Simulation"]
 shocks = [ws.cell(row=r, column=2).value for r in range(7, 67)]
 actions = [ws.cell(row=r, column=3).value for r in range(7, 67)]

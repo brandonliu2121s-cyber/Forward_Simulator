@@ -13,9 +13,11 @@ from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.properties import PageSetupProperties
 
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "python"))
 from reference_model import DEFAULTS as D, generate_scenario
 
-OUT = "Forwards_Market_Making_Simulator.xlsx"
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "excel", "Forwards_Market_Making_Simulator.xlsx")
 SEED, N_STEPS = 277, 60
 
 FONT = "Arial"
