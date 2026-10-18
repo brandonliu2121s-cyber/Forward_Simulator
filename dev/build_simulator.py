@@ -15,13 +15,23 @@ from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.properties import PageSetupProperties
 
+import argparse
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "python"))
 from instruments import ALL, DEFAULT, GLOBALS
+from live_data import read_snapshot
 from reference_model import generate_scenario
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "excel", "Forwards_Market_Making_Simulator.xlsx")
 SEED, N_STEPS = 277, 60
+
+_ap = argparse.ArgumentParser()
+_ap.add_argument("--snapshot", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "live_snapshot.json"),
+                 help="live spot snapshot written by python/refresh_live.py (default: live_snapshot.json in the repo root)")
+_ap.add_argument("--out", default=OUT, help="output .xlsx path")
+_ARGS = _ap.parse_args()
+# None if absent: the Live sheet is then empty and the toggle falls back to library spots
+SNAP = read_snapshot(_ARGS.snapshot)
 
 FONT = "Arial"
 NAVY, GREY, LIGHT = "1F3864", "F2F2F2", "D9E1F2"
@@ -103,7 +113,13 @@ rows = [
                     "every instrument. Edit a row or overwrite the Custom row to add your own."),
     ("Pricing", "Step-by-step derivation of the fair forward for the selected instrument, a live quote calculator and a skew ladder."),
     ("Simulation", "60-step market replay: market move, client RFQ, quotes, fill, P&L, limit checks and hedge for every step."),
+    ("Live", "Optional live-market snapshot (spots only) written by refresh_live.py, with the fair forward at the live spot for every instrument."),
     ("Summary", "Fills, hedges, P&L attribution (spread capture / mark-to-market / hedge cost), limit usage, checks, charts."),
+    ("LIVE DATA (OPTIONAL)", None),
+    ("How to use it", "Run  python3 refresh_live.py  on a computer with internet (see README). It fetches spot prices into live_snapshot.json and "
+                      "rebuilds this workbook. Then set Inputs > 'Use live spot' = 1. Default is 0, so the workbook never depends on a feed."),
+    ("What is and is not live", "Only SPOT prices come from the feed (a snapshot, not a stream; free sources are delayed). Interest rates, convenience yields, "
+                                "sizes and limits stay manual on the Instruments sheet. Commodity prices are front-month futures, not spot."),
     ("PRICING", None),
     ("One formula, two readings", "F = Spot x (1 + rate B x d / basis B) / (1 + rate A x d / basis A)."),
     ("FX pair BASE/QUOTE", "Covered interest parity: rate A = BASE-currency rate, rate B = QUOTE-currency rate. Higher-yielding "
@@ -189,6 +205,36 @@ it.conditional_formatting.add(f"B{IF_}:X{IL_}", FormulaRule(formula=[f"$B{IF_}=I
 it.freeze_panes = "C6"
 put(it, f"B{IL_ + 2}", "Highlighted row = instrument currently selected on Inputs.", f_sub)
 
+# --------------------------------------------------------------------------------------- Live
+lv = wb.create_sheet("Live")
+lv.sheet_view.showGridLines = False
+widths(lv, {"A": 2, "B": 18, "C": 14, "D": 30, "E": 26, "F": 28, "G": 14, "H": 14, "I": 15, "J": 14})
+put(lv, "B1", "Live Market Snapshot", f_title)
+put(lv, "B2", ("Snapshot fetched (UTC): %s" % SNAP["fetched_utc"]) if SNAP else
+    "No snapshot loaded: run  python3 refresh_live.py  to populate this sheet, then rebuild.", f_sub)
+put(lv, "B3", "Written by refresh_live.py (blue = pasted data). Delayed / unofficial data, educational use only. Only SPOT is live: "
+              "rates stay manual on the Instruments sheet.", f_sub)
+for col, h in zip("BCDEFGHIJ", ["Instrument", "Live spot", "As of", "Source", "Status", "Library spot", "Live vs library",
+                                 "Fair forward at live spot", "Fwd points at live spot (ticks)"]):
+    put(lv, f"{col}5", h, f_head, fill=fill_head, border=box,
+        align=Alignment(horizontal="center", vertical="center", wrap_text=True))
+lv.row_dimensions[5].height = 42
+for k, inst in enumerate(ALL):
+    r = IF_ + k
+    q = (SNAP or {}).get("quotes", {}).get(inst["name"], {})
+    put(lv, f"B{r}", f"=Instruments!B{r}", f_link, border=box)
+    put(lv, f"C{r}", q.get("price"), f_input, NF_PX, border=box)
+    put(lv, f"D{r}", q.get("as_of") or "", f_input, border=box)
+    put(lv, f"E{r}", q.get("source") or "", f_input, border=box)
+    put(lv, f"F{r}", q.get("status") or "no snapshot", f_input, border=box)
+    put(lv, f"G{r}", f"=Instruments!F{r}", f_link, NF_PX, border=box)
+    put(lv, f"H{r}", f'=IF(ISNUMBER(C{r}),C{r}/G{r}-1,"n/a")', f_base, "0.0%;(0.0%)", border=box, align=Alignment(horizontal="right"))
+    put(lv, f"I{r}", f'=IF(ISNUMBER(C{r}),C{r}*(1+Instruments!J{r}*Instruments!M{r}/Instruments!L{r})/(1+Instruments!G{r}*Instruments!M{r}/Instruments!K{r}),"n/a")',
+        f_base, NF_PX, border=box, align=Alignment(horizontal="right"))
+    put(lv, f"J{r}", f'=IF(ISNUMBER(C{r}),(I{r}-C{r})/Instruments!N{r},"n/a")', f_base, NF_PIP, border=box, align=Alignment(horizontal="right"))
+lv.conditional_formatting.add(f"B{IF_}:J{IL_}", FormulaRule(formula=[f"$B{IF_}=Instrument"], fill=PatternFill("solid", bgColor="BDD7EE")))
+lv.freeze_panes = "C6"
+
 # --------------------------------------------------------------------------------------- Inputs
 ws = wb.create_sheet("Inputs")
 ws.sheet_view.showGridLines = False
@@ -210,6 +256,10 @@ ws.add_data_validation(dv_inst)
 dv_inst.add("C4")
 put(ws, "B6", "Instrument note")
 put(ws, "C6", f"=INDEX(Instruments!$Y${IF_}:$Y${IL_},Inst_Row)", f_sub)
+put(ws, "B7", "Spot source in use")
+LIVE_OK = f"AND(Use_Live_Spot=1,ISNUMBER(INDEX(Live!$C${IF_}:$C${IL_},Inst_Row)))"
+put(ws, "C7", f'=IF({LIVE_OK},"LIVE spot, as of "&INDEX(Live!$D${IF_}:$D${IL_},Inst_Row)&"  ["&INDEX(Live!$E${IF_}:$E${IL_},Inst_Row)&"]",'
+    '"Library spot (illustrative placeholder)")', f_bold)
 
 for col, h in zip("BCDEFG", ["Assumption", "Instrument default", "Override (optional)", "ACTIVE value", "Unit", "Note"]):
     put(ws, f"{col}8", h, f_head, fill=fill_head, align=Alignment(horizontal="center" if col in "CDEF" else None))
@@ -221,7 +271,10 @@ spec = [
     ("text", "Unit_Label", "Position unit", "D", "FX: base currency. Commodity: contract unit (oz, bbl, t, MMBtu)."),
     ("text", "PnL_Ccy", "P&L / quote currency", "E", "All P&L, loss limit and hedge cost are in this currency."),
     ("section", "PRICING"),
-    ("num", "Spot_Init", "Starting spot price", "F", NF_PX, USD_PER, "Illustrative level, not live market data."),
+    ("num", "Spot_Init", "Starting spot price", "F", NF_PX, USD_PER,
+     "Default = live spot (Live sheet) when 'Use live spot' = 1 and a snapshot quote exists, else the library spot (illustrative)."),
+    ("global", "Use_Live_Spot", "Use live spot from the Live sheet  (1 = yes, 0 = no)", 0, "0", "flag",
+     "Run refresh_live.py first. 0 = always use the library spot, so the workbook never depends on a feed."),
     ("num", "Rate_A", '=IF(Inst_Type="FX","Rate A: base-currency interest rate","Rate A: convenience yield")', "G", "0.00%", "% p.a.",
      "Denominator of the forward formula. USD/SGD brief: USD 4.00%."),
     ("num", "Rate_B", '=IF(Inst_Type="FX","Rate B: quote-currency interest rate","Rate B: financing + storage cost")', "J", "0.00%", "% p.a.",
@@ -257,6 +310,9 @@ for item in spec:
         put(ws, f"B{r}", label)
         put(ws, f"C{r}", f"=INDEX(Instruments!${col}${IF_}:${col}${IL_},Inst_Row)", f_base,
             item[4] if kind == "num" else None, align=Alignment(horizontal="right"))
+        if nm == "Spot_Init":      # live-aware default
+            ws[f"C{r}"].value = (f"=IF({LIVE_OK},INDEX(Live!$C${IF_}:$C${IL_},Inst_Row),"
+                                 f"INDEX(Instruments!${col}${IF_}:${col}${IL_},Inst_Row))")
         if kind == "num":
             put(ws, f"D{r}", None, f_input, item[4], fill_input, Alignment(horizontal="right"), box)
             put(ws, f"E{r}", f'=IF(D{r}="",C{r},D{r})', f_bold, item[4], align=Alignment(horizontal="right"))
@@ -276,7 +332,7 @@ for item in spec:
         put(ws, f"F{r}", unit, f_sub, align=Alignment(horizontal="center"))
         put(ws, f"G{r}", note, f_sub)
         name(nm, f"Inputs!$E${r}")
-        if nm == "Halt_On_Loss":
+        if nm in ("Halt_On_Loss", "Use_Live_Spot"):
             dv_flag = DataValidation(type="list", formula1='"0,1"', allow_blank=False)
             ws.add_data_validation(dv_flag)
             dv_flag.add(f"E{r}")
@@ -546,13 +602,13 @@ for title, col, anchor, ytitle in [("Cumulative P&L", 27, "F4", "P&L"), ("Closin
     ch.series[0].graphicalProperties.line.width = 20000
     su.add_chart(ch, anchor)
 
-# sheet order: Guide, Inputs, Instruments, Pricing, Simulation, Summary
-wb.move_sheet("Inputs", offset=-1)
+# sheet order: Guide, Inputs, Instruments, Live, Pricing, Simulation, Summary
+wb.move_sheet("Inputs", offset=1 - wb.index(wb["Inputs"]))
 for sheet in wb.worksheets:
     sheet.page_setup.orientation = "landscape"
     sheet.page_setup.fitToWidth = 1
     sheet.page_setup.fitToHeight = 0
     sheet.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
 sm.print_title_rows = "4:5"
-wb.save(OUT)
-print("saved", OUT, "|", [s.title for s in wb.worksheets])
+wb.save(_ARGS.out)
+print("saved", _ARGS.out, "|", [s.title for s in wb.worksheets])

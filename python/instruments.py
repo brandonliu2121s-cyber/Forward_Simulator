@@ -74,3 +74,24 @@ def params(nm):
     p["spot_init"] = p.pop("spot")
     p.update(GLOBALS)
     return p
+
+
+# ---- live-data symbol mapping (used by live_data.py) -------------------------------------------------
+# yahoo symbol, scale to convert the feed's price into this instrument's price convention.
+# Yahoo's chart endpoint is unofficial/unsupported and may change or rate-limit. Commodity symbols are
+# FRONT-MONTH FUTURES (not spot): they approximate the spot level, which is fine for a teaching model.
+LIVE_SYMBOLS = {
+    "USD/SGD": ("SGD=X", 1.0),
+    "EUR/USD": ("EURUSD=X", 1.0),
+    "GBP/USD": ("GBPUSD=X", 1.0),
+    "USD/JPY": ("JPY=X", 1.0),
+    "AUD/USD": ("AUDUSD=X", 1.0),
+    "USD/CHF": ("CHF=X", 1.0),
+    "USD/CNH": ("CNH=X", 1.0),
+    "Gold": ("GC=F", 1.0),                 # USD / troy oz
+    "Silver": ("SI=F", 1.0),               # USD / troy oz
+    "WTI Crude": ("CL=F", 1.0),            # USD / bbl
+    "Copper": ("HG=F", 2204.62262),        # COMEX quotes USD / lb -> x 2204.62262 = USD / tonne
+    "Natural Gas": ("NG=F", 1.0),          # USD / MMBtu
+    "Custom (edit me)": ("MYR=X", 1.0),    # example row: USD/MYR
+}

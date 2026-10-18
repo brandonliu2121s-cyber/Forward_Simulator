@@ -1,0 +1,78 @@
+{
+  "fetched_utc": "2000-01-01 00:00:00",
+  "quotes": {
+    "USD/SGD": {
+      "price": 1.3026,
+      "as_of": "2000-01-01 00:00:00",
+      "source": "FIXTURE",
+      "status": "ok"
+    },
+    "EUR/USD": {
+      "price": 1.1759,
+      "as_of": "2000-01-01 00:00:00",
+      "source": "FIXTURE",
+      "status": "ok"
+    },
+    "GBP/USD": {
+      "price": 1.3584,
+      "as_of": "2000-01-01 00:00:00",
+      "source": "FIXTURE",
+      "status": "ok"
+    },
+    "USD/JPY": {
+      "price": 152.055,
+      "as_of": "2000-01-01 00:00:00",
+      "source": "FIXTURE",
+      "status": "ok"
+    },
+    "AUD/USD": {
+      "price": 0.669,
+      "as_of": "2000-01-01 00:00:00",
+      "source": "FIXTURE",
+      "status": "ok"
+    },
+    "USD/CHF": {
+      "price": 0.811,
+      "as_of": "2000-01-01 00:00:00",
+      "source": "FIXTURE",
+      "status": "ok"
+    },
+    "USD/CNH": {
+      "price": 7.248,
+      "as_of": "2000-01-01 00:00:00",
+      "source": "FIXTURE",
+      "status": "ok"
+    },
+    "Gold": {
+      "price": null,
+      "as_of": null,
+      "source": "yahoo:GC=F",
+      "status": "error: FeedError: fixture failure"
+    },
+    "WTI Crude": {
+      "price": 65.8905,
+      "as_of": "2000-01-01 00:00:00",
+      "source": "FIXTURE",
+      "status": "ok"
+    },
+    "Copper": {
+      "price": 10137.0,
+      "as_of": "2000-01-01 00:00:00",
+      "source": "FIXTURE",
+      "status": "ok"
+    },
+    "Natural Gas": {
+      "price": 3.548,
+      "as_of": "2000-01-01 00:00:00",
+      "source": "FIXTURE",
+      "status": "ok"
+    },
+    "Custom (edit me)": {
+      "price": 4.2575,
+      "as_of": "2000-01-01 00:00:00",
+      "source": "FIXTURE",
+      "status": "ok"
+    }
+  },
+  "note": "SYNTHETIC test fixture, not market data"
+}

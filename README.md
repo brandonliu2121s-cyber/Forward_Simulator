@@ -23,7 +23,9 @@ Built-in instruments (all inputs are **illustrative placeholders, not live marke
 | `instruments.py` | Instrument library (single source of truth for the workbook and the checks). |
 | `build_simulator.py` | Regenerates the workbook. |
 | `reference_model.py` | Independent pure-Python implementation of the same logic (also generates the demo scenario). |
-| `verify_workbook.py` | Cross-checks every simulated cell against the reference model, for one instrument or all of them. |
+| `verify_workbook.py` | Cross-checks every simulated cell against the reference model, for one instrument or all of them (optionally in live-spot mode). |
+| `live_data.py`, `refresh_live.py` | Optional live-spot snapshot: fetch prices, write `live_snapshot.json`, rebuild the workbook. Stdlib only. |
+| `tests/` | Unit tests for the live-data parsers (canned payloads, no network) and a synthetic snapshot fixture. |
 
 ## Using it
 
@@ -31,6 +33,25 @@ Built-in instruments (all inputs are **illustrative placeholders, not live marke
 2. **Instruments**: the library, with a live fair forward / forward points / premium-discount for every instrument. Edit any row or overwrite the Custom row to add your own.
 3. **Simulation**: edit the blue columns: *market move* (in sigma units, so one scenario runs on every instrument) and *client action* (BUY/SELL/NONE).
 4. **Summary** shows activity, P&L attribution, limit usage, integrity checks and charts. **Pricing** has a quote calculator and skew ladder for any inventory.
+
+## Optional: live spot prices
+
+No frontend or server is needed: Excel is the UI and a small Python script is the data refresher.
+
+```bash
+python3 refresh_live.py                      # fetch spots -> live_snapshot.json -> rebuild the workbook
+python3 refresh_live.py --provider frankfurter   # FX only, ECB daily fixing (not intraday)
+```
+
+Then open the workbook, go to **Inputs** and set *Use live spot* = 1. The **Live** sheet shows every instrument's live spot,
+timestamp, source and the fair forward at the live spot. The default is 0, so the workbook never depends on a feed.
+
+- **Only spot is live.** Interest rates, convenience yields, sizes and limits stay manual on the Instruments sheet.
+- It is a **snapshot, not a stream.** Free sources are delayed (Yahoo ~15 min; Frankfurter once a day).
+- Commodity prices are **front-month futures** (copper is converted from USD/lb to USD/tonne), not physical spot.
+- The Yahoo endpoint is unofficial and can change or rate-limit without notice. Any quote that fails falls back to the library spot.
+- **Not tested against the real feeds yet:** the build environment blocked them, so the parsers are covered by canned-payload unit tests only. Run `refresh_live.py` once on a machine with internet and check the output.
+- Educational use only: delayed, unofficial data must not drive trading decisions.
 
 ## Model logic
 
@@ -54,6 +75,8 @@ Position convention: net units bought from clients (+ = long). Client BUY lifts 
 python3 build_simulator.py                                   # writes the .xlsx (formulas, no cached values)
 python3 <xlsx-skill>/scripts/recalc.py Forwards_Market_Making_Simulator.xlsx   # LibreOffice recalculation
 python3 verify_workbook.py --all <xlsx-skill>/scripts/recalc.py                # switches to all 13 instruments; expect "TOTAL PROBLEMS: 0"
+python3 verify_workbook.py --all <xlsx-skill>/scripts/recalc.py --snapshot tests/fixtures/snapshot_fixture.json   # same, in live-spot mode
+python3 -m unittest discover -s tests -t .                                     # live-data parser tests
 ```
 
 ## Simplifications
