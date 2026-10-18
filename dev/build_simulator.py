@@ -99,7 +99,7 @@ put(g, "B2", "Pick any FX pair or commodity: the model prices its forward, quote
              "and hedges back-to-back when position or loss limits are breached.", f_sub)
 rows = [
     ("START HERE", None),
-    ("1. Choose an instrument", "Inputs!C4 is a dropdown of 7 FX pairs, 5 commodities and one Custom row. Everything (pricing, "
+    ("1. Choose an instrument", "Inputs!C4 is a dropdown of 7 FX pairs, 6 commodities and one Custom row. Everything (pricing, "
                                 "quote size, spread, limits, labels, charts) re-prices when you change it."),
     ("2. Tweak assumptions", "Inputs shows each instrument's default, an optional Override column (blue on yellow) and the ACTIVE "
                              "value the model uses. Leave Override blank to use the default."),

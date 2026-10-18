@@ -3,7 +3,8 @@
     python3 build_dashboard.py                        # writes dashboard/index.html (open it in any browser)
     python3 build_dashboard.py --fragment out.html    # also writes the bare fragment (no <html>/<head>/<body>) for publishing
 
-The page embeds dashboard/engine.js (a port of reference_model.py, verified by tests/test_dashboard_engine.py)
+The page embeds dashboard/engine.js (a port of reference_model.py, verified by tests/test_dashboard_engine.py),
+dashboard/io.js (CSV/JSON import and export, verified by tests/test_dashboard_io.py)
 and the instrument library from instruments.py, so there is one source of truth for the numbers.
 """
 import argparse
@@ -30,6 +31,7 @@ def data_json():
 def fragment():
     html = (ROOT / "dashboard" / "template.html").read_text()
     html = html.replace("/*__ENGINE__*/", (ROOT / "dashboard" / "engine.js").read_text())
+    html = html.replace("/*__IO__*/", (ROOT / "dashboard" / "io.js").read_text())
     assert "/*__DATA__*/" in html
     return html.replace("/*__DATA__*/", data_json())
 

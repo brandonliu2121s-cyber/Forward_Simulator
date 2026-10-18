@@ -14,7 +14,7 @@ Built-in instruments (all inputs are **illustrative placeholders, not live marke
 | Type | Instruments |
 |---|---|
 | FX (7) | USD/SGD (the original brief: USD 4.00%, SGD 0.55%, 45d, USD 250k, 5 ticks), EUR/USD, GBP/USD, USD/JPY, AUD/USD, USD/CHF, USD/CNH |
-| Commodity (5) | Gold, Silver, WTI Crude, Copper, Natural Gas |
+| Commodity (6) | Gold, Silver, WTI Crude, Brent Crude, Copper, Natural Gas |
 | Custom (1) | An editable example row (USD/MYR): overwrite it with any currency pair or commodity |
 
 ## Files
@@ -26,7 +26,7 @@ Built-in instruments (all inputs are **illustrative placeholders, not live marke
 | `build_simulator.py` | Regenerates the workbook. |
 | `reference_model.py` | Independent pure-Python implementation of the same logic (also generates the demo scenario). |
 | `dashboard/index.html` | The **Forward Desk** web dashboard (single self-contained file: open it in any browser). Built by `build_dashboard.py`. |
-| `dashboard/engine.js`, `dashboard/template.html` | Dashboard source: the simulation engine (a port of `reference_model.py`) and the UI. |
+| `dashboard/engine.js`, `dashboard/io.js`, `dashboard/template.html` | Dashboard source: the simulation engine (a port of `reference_model.py`), the CSV/JSON import-export module, and the UI. |
 | `build_dashboard.py` | Regenerates `dashboard/index.html` from the template, the engine and `instruments.py`. |
 | `verify_workbook.py` | Cross-checks every simulated cell against the reference model, for one instrument or all of them (optionally in live-spot mode). |
 | `live_data.py`, `refresh_live.py` | Optional live-spot snapshot: fetch prices, write `live_snapshot.json`, rebuild the workbook. Stdlib only. |
@@ -36,17 +36,35 @@ Built-in instruments (all inputs are **illustrative placeholders, not live marke
 
 Open `dashboard/index.html` in a browser. Pure HTML, CSS and JavaScript: no frontend framework, no backend, no install.
 
-- **Desk**: P&L, spread capture, inventory MTM and hedge cost; an orange hero chart (hover for step detail, click or use the arrow keys to pin a step; markers show limit hedges); a watchlist of all 13 instruments with simulated P&L sparklines; limit-usage bars; a risk-score gauge; generated insights with clickable limit-event chips.
+- **Desk**: P&L, spread capture, inventory MTM and hedge cost; an orange hero chart (hover for step detail, click or use the arrow keys to pin a step; markers show limit hedges); a watchlist of all 14 instruments with simulated P&L sparklines; limit-usage bars; a risk-score gauge; generated insights with clickable limit-event chips.
 - **Pricing**: the fair-forward derivation, a live bid/ask quote for any inventory, and the skew ladder.
 - **Instruments**: the library with fair forwards, forward points and simulated P&L; click a row to load it.
 - **Activity**: every step. Edit a market move or click an action (BUY / SELL / NONE) and everything recalculates.
-- **Settings**: override any instrument input, resize the scenario, load the Excel scenario or generate a random one.
+- **Settings**: override any instrument input, resize the scenario (10 to 500 steps), load the Excel scenario or generate a random one.
+- **Import / Export** (the arrows button in the top bar, or the buttons on Instruments, Activity and Settings): see below.
+
+### Import and export (CSV and JSON)
+
+| Export | Formats | Notes |
+|---|---|---|
+| Run results | CSV, JSON | Every step: quotes, fills, P&L, hedges. The CSV can be re-imported as a scenario. |
+| Scenario only | CSV, JSON | `step,move_sigma,action`. Matches columns A:C of the Excel **Simulation** sheet, so it pastes straight in. |
+| Full session | JSON | Instrument, overrides, settings, scenario and results; restores everything on import. |
+| Instrument library | CSV, JSON | All instruments including ones you imported. |
+
+Import accepts a file (click or drag and drop) or pasted text, detects the kind, and shows a preview with any errors before you apply it.
+A library CSV needs `name,type,unit,pnl,spot,rate_a,rate_b,basis_a,basis_b,tenor_days,tick,clip,spread_ticks,max_skew_ticks,pos_limit,loss_limit,hedge_cost_ticks,step_vol_ticks` (plus optional `note`);
+rates may be fractions (`0.04`) or percents (`4%`). The Excel **Instruments** sheet saved as CSV imports too. Add your own currencies or commodities this way.
+
+- Everything imported is validated (types, ranges, size under 2 MB, up to 500 steps); nothing is evaluated, and exported CSV text is guarded against spreadsheet formula injection.
+- **Downloads** use a normal browser download. If the page is embedded or sandboxed and the browser blocks it, use **Copy to clipboard** and paste into a file.
+- Exported numbers are rounded to 12 significant digits; line endings are CRLF as is standard for CSV.
 
 Scores: **Health** = share of steps quoting live. **Risk score** (0 to 100, higher is safer) = half inventory headroom plus half loss headroom, minus 4 per position-limit hedge and 10 per loss stop-out; the card also shows what inventory skew was worth against the same run with zero skew.
 
 ```bash
 python3 build_dashboard.py                                     # rebuild dashboard/index.html
-python3 -m unittest discover -s tests -t .                     # includes: JS engine == Python reference, all 13 instruments
+python3 -m unittest discover -s tests -t .                     # includes: JS engine == Python reference (all 14 instruments) and the CSV/JSON import-export suite
 PW_CHROMIUM=<chromium path> NODE_PATH=<playwright modules> node tests/ui_smoke.js   # optional UI smoke test (Playwright)
 ```
 
@@ -97,7 +115,7 @@ Position convention: net units bought from clients (+ = long). Client BUY lifts 
 ```bash
 python3 build_simulator.py                                   # writes the .xlsx (formulas, no cached values)
 python3 <xlsx-skill>/scripts/recalc.py Forwards_Market_Making_Simulator.xlsx   # LibreOffice recalculation
-python3 verify_workbook.py --all <xlsx-skill>/scripts/recalc.py                # switches to all 13 instruments; expect "TOTAL PROBLEMS: 0"
+python3 verify_workbook.py --all <xlsx-skill>/scripts/recalc.py                # switches to all 14 instruments; expect "TOTAL PROBLEMS: 0"
 python3 verify_workbook.py --all <xlsx-skill>/scripts/recalc.py --snapshot tests/fixtures/snapshot_fixture.json   # same, in live-spot mode
 python3 -m unittest discover -s tests -t .                                     # live-data parser tests
 ```

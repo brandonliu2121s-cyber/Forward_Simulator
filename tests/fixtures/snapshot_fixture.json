@@ -55,6 +55,12 @@
       "source": "FIXTURE",
       "status": "ok"
     },
+    "Brent Crude": {
+      "price": 69.9453,
+      "as_of": "2000-01-01 00:00:00",
+      "source": "FIXTURE",
+      "status": "ok"
+    },
     "Copper": {
       "price": 10137.0,
       "as_of": "2000-01-01 00:00:00",

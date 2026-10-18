@@ -259,6 +259,46 @@ table.t { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-
 .toggle input { width: 18px; height: 18px; accent-color: var(--orange); }
 .foot { color: var(--ink-3); font-size: 11.5px; padding: 4px 10px 2px; text-align: center; }
 
+/* ---------- data dialog (import / export) ---------- */
+.backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.68); display: grid; place-items: center;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.dlg { width: min(780px, 100%); max-height: 100%; overflow: auto; background: #141414; border: 1px solid #2e2e2e; border-radius: 26px; padding: 20px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7); display: grid; gap: 14px; }
+.dlg h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.tabs { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--tile); border: 1px solid var(--tile-line); }
+.tabs button { height: 30px; padding: 0 16px; border-radius: 999px; color: var(--ink-2); font-weight: 600; }
+.tabs button[aria-pressed="true"] { background: #fff; color: #111; }
+.tabs button:disabled { opacity: 0.35; cursor: not-allowed; }
+.opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.opt { text-align: left; padding: 12px 14px; border-radius: 16px; background: var(--tile); border: 1px solid var(--tile-line); display: grid; gap: 4px; }
+.opt span { color: var(--ink-2); font-size: 12px; line-height: 1.4; }
+.opt[aria-checked="true"] { border-color: var(--orange); background: #211510; }
+.fmtrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mono-area { width: 100%; min-height: 190px; resize: vertical; background: #0b0b0b; color: #d8d8d4; border: 1px solid #2c2c2c; border-radius: 14px; padding: 12px; font-family: var(--mono); font-size: 12px; line-height: 1.5; white-space: pre; overflow: auto; }
+.dlg-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.drop { border: 1.5px dashed #3a3a3a; border-radius: 18px; padding: 18px; text-align: center; background: #101010; }
+.drop.over { border-color: var(--orange); background: #1b120e; }
+.drop input { max-width: 100%; color: var(--ink-2); }
+.lab { color: var(--ink-2); font-size: 12px; }
+.prev { border-radius: 16px; padding: 12px 14px; border: 1px solid var(--tile-line); background: var(--tile); }
+.prev.ok { border-color: #2c5b3b; background: #0f1d14; }
+.prev.bad { border-color: #6a2a1b; background: #1d100c; }
+.prev p { margin: 0 0 6px; }
+.prev ul { margin: 0 0 10px; padding-left: 18px; }
+.prev li.err { color: var(--coral); }
+.prev li.warn { color: var(--yellow); }
+.fmt summary { cursor: pointer; color: var(--ink-2); }
+.fmt pre { margin: 8px 0 0; padding: 12px; background: #0b0b0b; border-radius: 12px; overflow-x: auto; font-family: var(--mono); font-size: 11.5px; line-height: 1.55; color: #c9c9c4; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); z-index: 60; max-width: min(520px, calc(100vw - 32px));
+  background: #fff; color: #111; padding: 10px 16px; border-radius: 14px; font-weight: 600; box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5); }
+.toast[hidden] { display: none; }
+.iconbtn.x { font-size: 18px; line-height: 1; }
+
+@media (max-width: 480px) {
+  .dlg { padding: 16px; border-radius: 22px; }
+  .dlg .card-head { flex-wrap: nowrap; gap: 8px; }
+  .dlg h2 { font-size: 16px; white-space: nowrap; }
+  .tabs button { padding: 0 11px; }
+}
 @media (max-width: 1080px) {
   .perf { grid-template-columns: 1fr; }
   .bottom { grid-template-columns: 1fr 1fr; }
@@ -281,9 +321,14 @@ table.t { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-
 </style>
 
 <div class="stage"><div class="device" id="app" aria-live="polite"></div></div>
+<div id="dlg"></div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
 <script>
 /*__ENGINE__*/
+</script>
+<script>
+/*__IO__*/
 </script>
 <script>
 const DATA = /*__DATA__*/;
@@ -291,6 +336,7 @@ const DATA = /*__DATA__*/;
 (() => {
   'use strict';
   const D = DATA, E = Engine;
+  const BUILTIN = JSON.parse(JSON.stringify(D.instruments));
   const $ = (s, r = document) => r.querySelector(s);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const MINUS = '−';
@@ -311,10 +357,10 @@ const DATA = /*__DATA__*/;
     'USD/SGD': ['S$', '#ffffff', '#111'], 'EUR/USD': ['€', '#3156ff', '#fff'], 'GBP/USD': ['£', '#d6246e', '#fff'],
     'USD/JPY': ['¥', '#e5372c', '#fff'], 'AUD/USD': ['A$', '#1f9d63', '#fff'], 'USD/CHF': ['Fr', '#ffffff', '#d8101a'],
     'USD/CNH': ['元', '#c9261f', '#ffd75a'], 'Gold': ['Au', '#f6cf4f', '#2b2100'], 'Silver': ['Ag', '#cfcfcf', '#222'],
-    'WTI Crude': ['Oil', '#2b2b2b', '#f6cf4f'], 'Copper': ['Cu', '#b8693a', '#fff'], 'Natural Gas': ['Gas', '#2f8bff', '#fff'],
+    'WTI Crude': ['Oil', '#2b2b2b', '#f6cf4f'], 'Brent Crude': ['Br', '#17365f', '#ffffff'], 'Copper': ['Cu', '#b8693a', '#fff'], 'Natural Gas': ['Gas', '#2f8bff', '#fff'],
   };
   const badge = (name, cls = '') => {
-    const b = BADGE[name] || [name.slice(0, 2).toUpperCase(), '#444', '#fff'];
+    const b = Object.prototype.hasOwnProperty.call(BADGE, name) ? BADGE[name] : [String(name).slice(0, 2).toUpperCase(), '#444', '#fff'];
     return `<span class="badge ${cls}" style="background:${b[1]};color:${b[2]}${b[1] === '#2b2b2b' ? ';box-shadow:inset 0 0 0 1px #444' : ''}">${esc(b[0])}</span>`;
   };
 
@@ -332,6 +378,8 @@ const DATA = /*__DATA__*/;
     up: '<path d="M7 17 17 7"/><path d="M8 7h9v9"/>',
     dn: '<path d="M17 7 7 17"/><path d="M16 17H7V8"/>',
     logo: '<path d="M4 6l7 6-7 6"/><path d="M12 6l7 6-7 6"/>',
+    swap: '<path d="M7 20V6M3 10l4-4 4 4"/><path d="M17 4v14M21 14l-4 4-4-4"/>',
+    x: '<path d="M6 6l12 12M18 6 6 18"/>',
   };
   const ico = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
 
@@ -371,7 +419,8 @@ const DATA = /*__DATA__*/;
     const who = `<div class="popwrap"><button class="who" data-act="pop" data-id="inst" aria-label="Choose instrument" aria-expanded="${S.pop === 'inst'}">${badge(S.inst)}<span style="font-weight:700">${esc(S.inst)}</span>${ico('down')}</button>${
       S.pop === 'inst' ? `<div class="pop"><h4>FX pairs</h4>${fx.map(li).join('')}<h4>Commodities</h4>${cm.map(li).join('')}</div>` : ''}</div>`;
     return `<header class="top"><div class="brand">${ico('logo')}Forward Desk</div><nav class="nav" aria-label="Views">${nav}</nav><div class="spacer"></div>
-      <button class="round" data-act="search" aria-label="Search instruments">${ico('search')}</button>${bell}${who}</header>`;
+      <button class="round" data-act="search" aria-label="Search instruments">${ico('search')}</button>
+      <button class="round" data-act="data" aria-label="Import or export data" title="Import / export">${ico('swap')}</button>${bell}${who}</header>`;
   }
 
   // ------------------------------------------------------------------ desk
@@ -612,7 +661,8 @@ const DATA = /*__DATA__*/;
   function viewInstruments() {
     const q = S.search.trim().toLowerCase();
     const rows = C.board.filter((b) => !q || (b.inst.name + ' ' + b.inst.type).toLowerCase().includes(q));
-    return `<div class="page-head"><div><h2>Instruments</h2><p>7 FX pairs and 5 commodities. Pick a row to load it on the Desk. Levels are illustrative, not live data.</p></div><span style="flex:1"></span>
+    return `<div class="page-head"><div><h2>Instruments</h2><p>${D.instruments.filter((i) => i.type === 'FX').length} FX pairs and ${D.instruments.filter((i) => i.type !== 'FX').length} commodities. Pick a row to load it on the Desk. Levels are illustrative, not live data.</p></div><span style="flex:1"></span>
+      <button class="btn" data-act="data" data-tab="import" data-what="library">Import</button><button class="btn" data-act="data" data-tab="export" data-what="library">Export</button>
       <input class="search" id="search" type="search" placeholder="Search instruments" value="${esc(S.search)}" aria-label="Search instruments"></div>
       <div class="scroll"><table class="t"><thead><tr><th>Instrument</th><th>Type</th><th>Spot</th><th>Fair forward</th><th>Fwd pts (ticks)</th><th>Prem/(disc) p.a.</th><th>Rate A</th><th>Rate B</th><th>Tenor</th><th>Spread</th><th>Quote size</th><th>Position limit</th><th>Sim. P&amp;L</th></tr></thead><tbody>${
         rows.map((b) => { const p = b.p, dec = decOf(p.tick), prem = b.carry * 365 / p.tenor_days;
@@ -630,7 +680,7 @@ const DATA = /*__DATA__*/;
       <td>${nf(r.spot, dec + 1)}</td><td>${nf(r.fwd, dec + 1)}</td><td>${money(r.pos_open, 0)}</td><td>${signed(r.skew, 2) || '0.00'}</td><td>${nf(r.bid, dec)}</td><td>${nf(r.ask, dec)}</td><td>${money(r.fill, 0)}</td>
       <td>${money(r.edge)}</td><td>${money(r.mtm)}</td><td>${r.trigger ? `<b>${r.trigger === 'LOSS LIMIT' ? 'LOSS' : 'POS'}</b> ${money(r.hedge, 0)}` : '-'}</td><td>${money(r.pos_close, 0)}</td><td class="${r.cum < 0 ? 'neg' : 'pos'}">${money(r.cum)}</td><td>${r.live ? 'LIVE' : 'HALTED'}</td></tr>`).join('');
     return `<div class="page-head"><div><h2>Activity: ${esc(S.inst)}</h2><p>Every step of the run. Edit a market move (sigma units) or click an action to cycle BUY, SELL, NONE; everything recalculates.</p></div><span style="flex:1"></span>
-      <button class="btn" data-act="reshuffle">New random scenario</button><button class="btn" data-act="excel">Load Excel scenario</button></div>
+      <button class="btn" data-act="reshuffle">New random scenario</button><button class="btn" data-act="excel">Load Excel scenario</button><button class="btn" data-act="data" data-tab="import" data-what="scenario">Import</button><button class="btn" data-act="data" data-tab="export" data-what="run">Export</button></div>
       <div class="scroll"><table class="t mono"><thead><tr><th>Step</th><th>Move (sigma)</th><th>Client</th><th>Spot</th><th>Fair fwd</th><th>Open pos (${u})</th><th>Skew</th><th>Bid</th><th>Ask</th><th>Fill (${u})</th><th>Spread cap.</th><th>MTM</th><th>Hedge</th><th>Close pos</th><th>Cum. P&amp;L ${esc(C.inst.pnl)}</th><th>Status</th></tr></thead><tbody>${body}</tbody></table></div>
       <p class="muted" style="margin:10px 4px 0"><span style="color:var(--yellow)">Yellow</span> rows hit the position limit, <span style="color:var(--coral)">orange</span> rows hit the loss limit, grey rows are halted.</p>`;
   }
@@ -643,10 +693,10 @@ const DATA = /*__DATA__*/;
       return `<div class="field"><label for="f-${k}">${lab}</label><input id="f-${k}" type="number" step="${o.step || 'any'}" data-field="${k}" ${o.pct ? 'data-pct="1"' : ''} class="${ov ? 'ov' : ''}" value="${v}" placeholder="${+(base[k] * sc).toPrecision(10)}"><small>${ov ? 'Overridden' : 'Default'}: ${+(base[k] * sc).toPrecision(10)}${o.unit || ''}</small></div>`;
     };
     const opts = D.instruments.map((i) => `<option ${i.name === S.inst ? 'selected' : ''}>${esc(i.name)}</option>`).join('');
-    return `<div class="page-head"><div><h2>Settings</h2><p>Leave a field blank to use the ${esc(S.inst)} default. Changes apply when you leave the field.</p></div><span style="flex:1"></span><button class="btn" data-act="resetover">Reset to defaults</button></div>
+    return `<div class="page-head"><div><h2>Settings</h2><p>Leave a field blank to use the ${esc(S.inst)} default. Changes apply when you leave the field.</p></div><span style="flex:1"></span><button class="btn" data-act="data" data-tab="import" data-what="session">Import / Export</button><button class="btn" data-act="resetover">Reset to defaults</button></div>
       <div class="cols"><section class="card"><h3>Scenario</h3><div class="grid2" style="margin-top:12px"><div class="field"><label for="f-inst">Instrument</label><select id="f-inst" data-inst>${opts}</select></div>
-        <div class="field"><label for="f-steps">Steps</label><input id="f-steps" type="number" min="10" max="120" step="1" value="${S.zs.length}" data-steps><small>10 to 120 client RFQs</small></div></div>
-        <p class="muted" style="margin:14px 0 8px">Scenario: <b style="color:var(--ink)">${esc(S.seedNote)}</b>${S.seedNote.startsWith('Excel') ? '' : ' #' + S.seed}</p>
+        <div class="field"><label for="f-steps">Steps</label><input id="f-steps" type="number" min="10" max="500" step="1" value="${S.zs.length}" data-steps><small>10 to 500 client RFQs</small></div></div>
+        <p class="muted" style="margin:14px 0 8px">Scenario: <b style="color:var(--ink)">${esc(S.seedNote)}</b>${S.seed == null || S.seedNote.startsWith('Excel') ? '' : ' #' + S.seed}</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn orange" data-act="reshuffle">New random scenario</button><button class="btn" data-act="excel">Load Excel scenario</button></div></section>
       <section class="card"><h3>Pricing inputs</h3><div class="grid2" style="margin-top:12px">${F('spot_init', `Spot (${c} per ${u})`)}${F('rate_a', fx ? 'Base-currency rate (%)' : 'Convenience yield (%)', { pct: 1, step: '0.01' })}${F('rate_b', fx ? 'Quote-currency rate (%)' : 'Financing + storage (%)', { pct: 1, step: '0.01' })}${F('tenor_days', 'Tenor (days)', { step: 1 })}${F('basis_a', 'Day basis A', { step: 1 })}${F('basis_b', 'Day basis B', { step: 1 })}</div></section>
       <section class="card"><h3>Quoting</h3><div class="grid2" style="margin-top:12px">${F('tick', 'Tick size')}${F('clip', `Quote size (${u})`, { step: 1 })}${F('spread_ticks', 'Spread (ticks)', { step: 0.5 })}${F('max_skew_ticks', 'Max skew (ticks)', { step: 0.5 })}${F('step_vol_ticks', 'Step volatility (ticks per 1σ)', { step: 0.5 })}</div></section>
@@ -654,6 +704,166 @@ const DATA = /*__DATA__*/;
         <div class="field"><label for="g-hp">Residual after limit hedge (% of limit)</label><input id="g-hp" type="number" step="5" min="0" max="100" data-gpct="hedge_target_pct" value="${S.glob.hedge_target_pct * 100}"></div>
         <div class="field"><label for="g-sp">Opening position (${u})</label><input id="g-sp" type="number" step="1" data-gnum="start_pos" value="${S.glob.start_pos}"></div>
         <div class="field"><label>Loss-limit stop-out</label><label class="toggle"><input type="checkbox" data-glob="halt_on_loss" ${S.glob.halt_on_loss === 1 ? 'checked' : ''}>Halt quoting after a breach</label></div></div></section></div>`;
+  }
+
+  // ------------------------------------------------------------------ data dialog (import / export)
+  const DL = { open: false, tab: 'export', what: 'run', fmt: 'csv', text: '', parsed: null, bundle: null };
+  let toastTimer = null;
+  function toast(msg) { const el = $('#toast'); el.textContent = msg; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 5000); }
+  const slug = (x) => String(x).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'data';
+  const WHATS = [
+    ['run', 'Run results', 'Every step: quotes, fills, P&L and hedges (CSV or JSON)'],
+    ['scenario', 'Scenario only', 'Market moves and client actions. The CSV pastes into the Excel Simulation sheet'],
+    ['session', 'Full session', 'Instrument, overrides, settings, scenario and results (JSON)'],
+    ['library', 'Instrument library', 'All instruments, including any you imported (CSV or JSON)'],
+  ];
+  const EXAMPLES = {
+    scenario: 'step,move_sigma,action\n1,1.5,NONE\n2,-1.2,BUY\n3,0.4,SELL\n4,-0.8,SELL\n5,2.1,BUY\n',
+    library: IO.exportLibraryCSV([{ name: 'Example Corn', type: 'Commodity', unit: 'bu', pnl: 'USD', note: 'Example row with illustrative values',
+      params: { spot_init: 4.5, rate_a: 0.02, rate_b: 0.06, basis_a: 365, basis_b: 365, tenor_days: 90, tick: 0.0025, clip: 5000, spread_ticks: 4, max_skew_ticks: 3, pos_limit: 20000, loss_limit: 2400, hedge_cost_ticks: 1, step_vol_ticks: 8 } }]),
+  };
+  const CHEAT = `Scenario (CSV)      step,move_sigma,action        move = market move in 1-sigma units (-10..10)
+                    1,1.5,NONE                   action = BUY, SELL or NONE
+                    Columns A:C of the Excel Simulation sheet paste straight in.
+Scenario (JSON)     {"moves":[1.5,-1.2],"actions":["NONE","BUY"]}
+Instruments (CSV)   name,type,unit,pnl,spot,rate_a,rate_b,basis_a,basis_b,tenor_days,tick,clip,
+                    spread_ticks,max_skew_ticks,pos_limit,loss_limit,hedge_cost_ticks,step_vol_ticks,note
+                    type = FX or Commodity. Rates as fractions (0.04) or percents (4%).
+                    An Excel Instruments sheet saved as CSV also imports.
+Instruments (JSON)  {"instruments":[{"name":"...","type":"FX", ...}]}
+Session (JSON)      The "Full session" export. Restores instrument, overrides, settings and scenario.`;
+
+  function exportBundle() {
+    const what = DL.what, fmt = what === 'session' ? 'json' : DL.fmt, sc = { seed: S.seed, note: S.seedNote, zs: S.zs, acts: S.acts };
+    let text;
+    if (what === 'run') text = fmt === 'csv' ? IO.exportRunCSV(C.rows) : IO.exportRunJSON({ instrument: S.inst, unit: C.inst.unit, pnl: C.inst.pnl, params: C.p, globals: S.glob, summary: C.sum }, C.rows);
+    else if (what === 'scenario') text = fmt === 'csv' ? IO.exportScenarioCSV(S.zs, S.acts) : IO.exportScenarioJSON(sc);
+    else if (what === 'library') text = fmt === 'csv' ? IO.exportLibraryCSV(D.instruments) : IO.exportLibraryJSON(D.instruments);
+    else text = IO.exportSessionJSON({ instrument: S.inst, definition: C.inst, overrides: S.over, globals: S.glob, scenario: sc, summary: C.sum, rows: C.rows });
+    return { text, fmt, name: (what === 'library' ? 'forward-desk_library' : `forward-desk_${slug(S.inst)}_${what}`) + '.' + fmt, mime: fmt === 'csv' ? 'text/csv' : 'application/json' };
+  }
+  function renderDialog() {
+    const el = $('#dlg');
+    document.documentElement.style.overflow = DL.open ? 'hidden' : '';
+    if (!DL.open) { el.innerHTML = ''; return; }
+    const exp = DL.tab === 'export';
+    let body;
+    if (exp) {
+      const b = (DL.bundle = exportBundle());
+      body = `<div class="opts" role="radiogroup" aria-label="What to export">${WHATS.map(([k, l, d]) => `<button class="opt" role="radio" aria-checked="${DL.what === k}" data-act="dlgwhat" data-k="${k}"><b>${l}</b><span>${d}</span></button>`).join('')}</div>
+        <div class="fmtrow"><span class="muted">Format</span><span class="tabs" role="group" aria-label="Format"><button data-act="dlgfmt" data-k="csv" aria-pressed="${b.fmt === 'csv'}" ${DL.what === 'session' ? 'disabled' : ''}>CSV</button><button data-act="dlgfmt" data-k="json" aria-pressed="${b.fmt === 'json'}">JSON</button></span><span class="dim" id="exp-meta"></span></div>
+        <textarea id="exp-text" class="mono-area" readonly spellcheck="false" aria-label="Export text"></textarea>
+        <div class="dlg-actions"><button class="btn primary" data-act="dlgdl">Download ${esc(b.name)}</button><button class="btn" data-act="dlgcopy">Copy to clipboard</button></div>
+        <p class="dim" style="margin:0">Downloads can be blocked when this page is embedded or sandboxed. Copy always works: paste into a .${b.fmt} file.</p>`;
+    } else {
+      body = `<div id="dropzone" class="drop"><p style="margin:0 0 8px"><b>Drop a .csv or .json file here</b>, or</p><input type="file" id="imp-file" data-file accept=".csv,.json,.txt,text/csv,application/json" aria-label="Choose a file to import"></div>
+        <label class="lab" for="imp-text">Or paste text</label><textarea id="imp-text" class="mono-area" data-imptext spellcheck="false" placeholder="Paste CSV or JSON here" style="min-height:130px"></textarea>
+        <div class="dlg-actions"><button class="btn" data-act="dlgexample" data-k="scenario">Fill example scenario</button><button class="btn" data-act="dlgexample" data-k="library">Fill example instrument</button><button class="btn" data-act="dlgreset">Restore built-in instruments</button></div>
+        <div id="imp-prev" aria-live="polite"></div>
+        <details class="fmt"><summary>Accepted formats</summary><pre>${esc(CHEAT)}</pre></details>`;
+    }
+    el.innerHTML = `<div class="backdrop" data-act="dlgclose"><div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-title"><div class="card-head"><h2 id="dlg-title">Import / Export</h2><span class="sp"></span>
+      <span class="tabs" role="group" aria-label="Mode"><button data-act="dlgtab" data-k="export" aria-pressed="${exp}">Export</button><button data-act="dlgtab" data-k="import" aria-pressed="${!exp}">Import</button></span>
+      <button class="iconbtn x" data-act="dlgclose" aria-label="Close">${ico('x')}</button></div>${body}</div></div>`;
+    if (exp) {
+      $('#exp-text').value = DL.bundle.text;
+      $('#exp-meta').textContent = `${DL.bundle.text.split('\n').length - 1} lines, ${(DL.bundle.text.length / 1024).toFixed(1)} KB`;
+    } else {
+      $('#imp-text').value = DL.text; renderPreview();
+      const dz = $('#dropzone');
+      dz.addEventListener('dragover', (ev) => { ev.preventDefault(); dz.classList.add('over'); });
+      dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+      dz.addEventListener('drop', (ev) => { ev.preventDefault(); dz.classList.remove('over'); readFile(ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]); });
+    }
+  }
+  function renderPreview() {
+    const el = $('#imp-prev'); if (!el) return;
+    const r = DL.parsed;
+    if (!r) { el.innerHTML = ''; return; }
+    const li = (arr, cls) => arr.slice(0, 8).map((m) => `<li class="${cls}">${esc(m)}</li>`).join('') + (arr.length > 8 ? `<li class="${cls}">...and ${arr.length - 8} more</li>` : '');
+    let head = 'This could not be imported.', can = false;
+    if (r.kind === 'scenario') {
+      const b = r.acts.filter((x) => x === 'BUY').length, sl = r.acts.filter((x) => x === 'SELL').length;
+      head = `Scenario with <b>${r.zs.length}</b> steps: ${b} buy, ${sl} sell, ${r.zs.length - b - sl} no trade.`; can = !r.errors.length;
+    } else if (r.kind === 'library') {
+      const ex = r.instruments.filter((i) => D.instruments.some((x) => x.name === i.name)).length;
+      head = `Instrument library with <b>${r.instruments.length}</b> valid instrument${r.instruments.length === 1 ? '' : 's'} (${r.instruments.length - ex} new, ${ex} replacing existing)${r.skipped ? `. ${r.skipped} skipped` : ''}.`;
+      can = r.instruments.length > 0;
+    } else if (r.kind === 'session') {
+      const known = D.instruments.some((i) => i.name === r.instrument) || !!r.definition;
+      head = `Session for <b>${esc(r.instrument)}</b>${r.scenario ? ` with a ${r.scenario.zs.length}-step scenario` : ''}, ${Object.keys(r.overrides).length} override${Object.keys(r.overrides).length === 1 ? '' : 's'}.`;
+      can = !r.errors.length && known;
+      if (!known && !r.errors.length) r.errors.push(`Instrument "${r.instrument}" is not in the library and the file does not define it.`);
+    }
+    el.innerHTML = `<div class="prev ${can ? 'ok' : 'bad'}"><p>${head}</p><ul>${li(r.errors, 'err')}${li(r.warnings || [], 'warn')}</ul>${can ? '<button class="btn orange" data-act="dlgapply">Apply import</button>' : ''}</div>`;
+  }
+  function onImportText(text, fname) {
+    DL.text = text;
+    DL.parsed = text.trim() ? IO.parseImport(text, fname) : null;
+    renderPreview();
+  }
+  function readFile(file) {
+    if (!file) return;
+    if (file.size > IO.MAX_BYTES) { DL.text = ''; DL.parsed = { kind: null, errors: ['That file is over 2 MB, which is more than this tool will read.'], warnings: [] }; $('#imp-text').value = ''; renderPreview(); return; }
+    const fr = new FileReader();
+    fr.onload = () => { const txt = String(fr.result); $('#imp-text').value = txt; onImportText(txt, file.name); };
+    fr.onerror = () => { DL.parsed = { kind: null, errors: ['Could not read that file.'], warnings: [] }; renderPreview(); };
+    fr.readAsText(file);
+  }
+  function applyImport() {
+    const r = DL.parsed; if (!r || !r.kind) return;
+    const setScenario = (sc, note) => { S.zs = sc.zs.slice(); S.acts = sc.acts.slice(); S.seed = sc.seed == null ? null : sc.seed; S.seedNote = note; S.pin = null; };
+    let msg = '';
+    if (r.kind === 'scenario') { setScenario(r, 'Imported scenario'); msg = `Scenario loaded: ${r.zs.length} steps.`; }
+    else if (r.kind === 'library') {
+      let add = 0, upd = 0;
+      r.instruments.forEach((i) => { const k = D.instruments.findIndex((x) => x.name === i.name); if (k >= 0) { D.instruments[k] = i; upd++; if (i.name === S.inst) S.over = {}; } else { D.instruments.push(i); add++; } });
+      S.search = '';
+      msg = `Instruments imported: ${add} new, ${upd} updated.`;
+    } else if (r.kind === 'session') {
+      let inst = D.instruments.find((i) => i.name === r.instrument);
+      if (!inst && r.definition) { D.instruments.push(r.definition); inst = r.definition; }
+      if (!inst) return;
+      S.inst = inst.name; S.over = Object.assign({}, r.overrides); S.glob = Object.assign({}, D.globals, r.globals);
+      if (r.scenario) setScenario(r.scenario, r.scenario.note || 'Imported session');
+      S.pin = null; msg = `Session loaded: ${inst.name}.`;
+    }
+    DL.open = false; renderDialog(); render(); toast(msg);
+  }
+  function closeDialog() { DL.open = false; renderDialog(); }
+  function download(b) {
+    try {
+      const url = URL.createObjectURL(new Blob([b.text], { type: b.mime + ';charset=utf-8' }));
+      const a = document.createElement('a'); a.href = url; a.download = b.name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      toast(`Saving ${b.name}. If nothing downloads, use Copy instead.`);
+    } catch (_) { toast('Downloads are not available here. Use Copy instead.'); }
+  }
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); toast('Copied to clipboard.'); }
+    catch (_) { const ta = $('#exp-text'); if (ta) { ta.focus(); ta.select(); } toast('Text selected. Press Ctrl or Cmd + C to copy.'); }
+  }
+  function dialogClick(a, t, e) {
+    if (a === 'dlgclose' && t.classList.contains('backdrop') && e.target !== t) return;
+    if (a === 'data') {
+      DL.open = true; DL.tab = t.dataset.tab || DL.tab; if (t.dataset.what) DL.what = t.dataset.what;
+      if (DL.tab === 'import') { DL.text = ''; DL.parsed = null; }
+      if (S.pop) { S.pop = null; render(); }
+      return renderDialog();
+    }
+    if (a === 'dlgclose') return closeDialog();
+    if (a === 'dlgtab') { DL.tab = t.dataset.k; DL.text = ''; DL.parsed = null; return renderDialog(); }
+    if (a === 'dlgwhat') { DL.what = t.dataset.k; if (DL.what === 'session') DL.fmt = 'json'; return renderDialog(); }
+    if (a === 'dlgfmt') { DL.fmt = t.dataset.k; return renderDialog(); }
+    if (a === 'dlgdl') return download(DL.bundle);
+    if (a === 'dlgcopy') return copyText(DL.bundle.text);
+    if (a === 'dlgexample') { const x = EXAMPLES[t.dataset.k]; $('#imp-text').value = x; return onImportText(x, 'example'); }
+    if (a === 'dlgapply') return applyImport();
+    if (a === 'dlgreset') {
+      D.instruments = JSON.parse(JSON.stringify(BUILTIN));
+      if (!D.instruments.some((i) => i.name === S.inst)) { S.inst = D.default; S.over = {}; }
+      render(); return toast('Built-in instruments restored.');
+    }
   }
 
   // ------------------------------------------------------------------ render + events
@@ -676,9 +886,9 @@ const DATA = /*__DATA__*/;
     S.zs = g.zs; S.acts = g.acts; S.seed = seed; S.seedNote = 'Browser scenario'; S.pin = null;
   }
   function setSteps(n) {
-    n = Math.max(10, Math.min(120, Math.round(n) || 60));
+    n = Math.max(10, Math.min(500, Math.round(n) || 60));
     if (n < S.zs.length) { S.zs.length = n; S.acts.length = n; }
-    else if (n > S.zs.length) { const g = E.generateScenario(S.seed + 7, n); S.zs = S.zs.concat(g.zs.slice(S.zs.length)); S.acts = S.acts.concat(g.acts.slice(S.acts.length)); }
+    else if (n > S.zs.length) { const g = E.generateScenario((S.seed || 1) + 7, n); S.zs = S.zs.concat(g.zs.slice(S.zs.length)); S.acts = S.acts.concat(g.acts.slice(S.acts.length)); }
     S.pin = null;
   }
 
@@ -686,6 +896,7 @@ const DATA = /*__DATA__*/;
     const t = e.target.closest('[data-act]');
     if (!t) { if (S.pop && !e.target.closest('.pop')) { S.pop = null; render(); } return; }
     const a = t.dataset.act;
+    if (a === 'data' || a.startsWith('dlg')) return dialogClick(a, t, e);
     if (a === 'view') return setView(t.dataset.v);
     if (a === 'pop') { S.pop = S.pop === t.dataset.id ? null : t.dataset.id; return render(); }
     if (a === 'inst') { S.inst = t.dataset.name; S.over = {}; S.pin = null; S.pop = null; if (t.dataset.go) S.view = t.dataset.go; render(); return; }
@@ -703,14 +914,17 @@ const DATA = /*__DATA__*/;
     if (a === 'pinstep') { S.pin = +t.dataset.i; S.view = 'desk'; S.pop = null; S.range = 0; S.metric = 'pnl'; render(); const pl = $('#plot'); if (pl) pl.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
   });
   document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && DL.open) { closeDialog(); return; }
     if (e.key === 'Escape' && S.pop) { S.pop = null; render(); }
     if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('tr.clickable')) { e.preventDefault(); e.target.click(); }
   });
   document.addEventListener('input', (e) => {
+    if (e.target.dataset && e.target.dataset.imptext !== undefined) { onImportText(e.target.value, ''); return; }
     if (e.target.id === 'search') { S.search = e.target.value; const pos = e.target.selectionStart; render(); const s = $('#search'); if (s) { s.focus(); s.setSelectionRange(pos, pos); } }
   });
   document.addEventListener('change', (e) => {
     const t = e.target, keep = () => { const sy = window.scrollY; render(); window.scrollTo(0, sy); };
+    if (t.dataset.file !== undefined) { readFile(t.files && t.files[0]); return; }
     if (t.dataset.field) {
       const k = t.dataset.field, raw = t.value.trim(), v = parseFloat(raw);
       if (raw === '' || Number.isNaN(v)) delete S.over[k]; else S.over[k] = t.dataset.pct ? v / 100 : v;

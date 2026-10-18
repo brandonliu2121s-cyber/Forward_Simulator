@@ -47,6 +47,8 @@ INSTRUMENTS = [
          "Price USD/oz, 90-day forward. Conv. yield 0.30%; financing 4.00% + storage 0.30%. Illustrative."),
     _cmd("WTI Crude", "bbl", 65.00, 0.0700, 0.0400, 0.0200, 0.01, 10_000, 4, 3, 40_000, 8,
          "Price USD/bbl, 90-day forward. Conv. yield 7.00% > carry 6.00% -> mild BACKWARDATION (forward < spot). Illustrative."),
+    _cmd("Brent Crude", "bbl", 69.00, 0.0700, 0.0400, 0.0200, 0.01, 10_000, 4, 3, 40_000, 8,
+         "Price USD/bbl (ICE Brent), 90-day forward. Conv. yield 7.00% > carry 6.00% -> mild BACKWARDATION. Illustrative."),
     _cmd("Copper", "t", 10000.00, 0.0200, 0.0400, 0.0100, 0.50, 25, 4, 2, 100, 10,
          "Price USD/tonne, 90-day forward. Conv. yield 2.00%; financing 4.00% + storage 1.00%. Illustrative."),
     _cmd("Natural Gas", "MMBtu", 3.50, 0.0000, 0.0400, 0.1200, 0.001, 10_000, 5, 3, 40_000, 10,
@@ -91,6 +93,7 @@ LIVE_SYMBOLS = {
     "Gold": ("GC=F", 1.0),                 # USD / troy oz
     "Silver": ("SI=F", 1.0),               # USD / troy oz
     "WTI Crude": ("CL=F", 1.0),            # USD / bbl
+    "Brent Crude": ("BZ=F", 1.0),          # USD / bbl (ICE Brent front-month)
     "Copper": ("HG=F", 2204.62262),        # COMEX quotes USD / lb -> x 2204.62262 = USD / tonne
     "Natural Gas": ("NG=F", 1.0),          # USD / MMBtu
     "Custom (edit me)": ("MYR=X", 1.0),    # example row: USD/MYR
