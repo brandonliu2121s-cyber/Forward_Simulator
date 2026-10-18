@@ -1,57 +1,51 @@
 """Pure-Python reference implementation of the Excel simulation logic.
 
-Used (a) to generate a reproducible demo scenario and (b) by verify_workbook.py
-to cross-check the numbers LibreOffice/Excel compute from the workbook formulas.
+Used (a) to generate a reproducible demo scenario and (b) by verify_workbook.py to cross-check the
+numbers LibreOffice/Excel compute from the workbook formulas.
 """
 import random
 
-DEFAULTS = dict(
-    spot_init=1.2850, base_ir=0.04, quote_ir=0.0055, tenor_days=45,
-    base_basis=360, quote_basis=365, tick=0.0001, clip=250_000,
-    spread_ticks=5, max_skew_ticks=3, pos_limit=1_000_000, hedge_target=0,
-    hedge_cost_ticks=1, loss_limit=1_500, halt_on_loss=1, start_pos=0,
-)
+from instruments import DEFAULT, params
 
 
 def fair_forward(spot, p):
-    """Covered interest parity: F = S * (1 + r_quote*d/Bq) / (1 + r_base*d/Bb)."""
+    """F = S x (1 + rate_b x d / basis_b) / (1 + rate_a x d / basis_a)  (IRP for FX, cost-of-carry for commodities)."""
     d = p["tenor_days"]
-    return spot * (1 + p["quote_ir"] * d / p["quote_basis"]) / (1 + p["base_ir"] * d / p["base_basis"])
+    return spot * (1 + p["rate_b"] * d / p["basis_b"]) / (1 + p["rate_a"] * d / p["basis_a"])
 
 
-def generate_scenario(seed, n_steps=60, shock_sd=3.0):
-    """Spot shocks (ticks) and client actions, with some flow clustering so inventory builds."""
+def generate_scenario(seed, n_steps=60):
+    """Market moves in step-vol units (1 decimal) and client actions, with flow clustering so inventory builds."""
     rng = random.Random(seed)
-    shocks, actions, bias = [], [], 0
+    zs, actions, bias = [], [], 0
     for _ in range(n_steps):
-        shocks.append(int(round(rng.gauss(0, shock_sd))))
+        zs.append(round(rng.gauss(0, 1), 1))
         if rng.random() < 0.15:                     # occasionally flip the dominant client side
             bias = rng.choice([-1, 0, 1])
-        r = rng.random()
-        if r < 0.30:
+        if rng.random() < 0.30:
             actions.append("NONE")
         else:
             side = bias if (bias != 0 and rng.random() < 0.65) else rng.choice([-1, 1])
             actions.append("BUY" if side > 0 else "SELL")
-    return shocks, actions
+    return zs, actions
 
 
-def simulate(shocks, actions, p):
+def simulate(zs, actions, p):
     rows = []
     spot = p["spot_init"]
     fwd_prev = fair_forward(spot, p)
     pos, cum, halted = p["start_pos"], 0.0, 0
-    for shock, act in zip(shocks, actions):
-        spot = spot + shock * p["tick"]
+    hedge_target = p["hedge_target_pct"] * p["pos_limit"]
+    for z, act in zip(zs, actions):
+        spot = spot + z * p["step_vol_ticks"] * p["tick"]
         fwd = fair_forward(spot, p)
         skew = -max(-1, min(1, pos / p["pos_limit"])) * p["max_skew_ticks"]
         bid = round(fwd / p["tick"] + skew - p["spread_ticks"] / 2) * p["tick"]
         ask = bid + p["spread_ticks"] * p["tick"]
-        live = halted == 0
         fill = 0
-        if live and act == "BUY":
-            fill = -p["clip"]          # client buys USD from us at our ask -> we go shorter
-        elif live and act == "SELL":
+        if halted == 0 and act == "BUY":
+            fill = -p["clip"]          # client buys from us at our ask -> we go shorter
+        elif halted == 0 and act == "SELL":
             fill = p["clip"]
         pos_client = pos + fill
         edge = abs(fill) * ((ask - fwd) if fill < 0 else (fwd - bid)) if fill else 0.0
@@ -62,7 +56,7 @@ def simulate(shocks, actions, p):
         if loss_breach:
             hedge = -pos_client
         elif pos_breach:
-            hedge = -(pos_client - (1 if pos_client > 0 else -1) * p["hedge_target"])
+            hedge = -(pos_client - (1 if pos_client > 0 else -1) * hedge_target)
         else:
             hedge = 0
         hedge_cost = -abs(hedge) * p["hedge_cost_ticks"] * p["tick"]
@@ -79,12 +73,12 @@ def simulate(shocks, actions, p):
 
 
 if __name__ == "__main__":
-    p = DEFAULTS
-    print("F0 =", fair_forward(p["spot_init"], p))
-    for seed in range(1, 400):
-        sh, ac = generate_scenario(seed)
-        r = simulate(sh, ac, p)
+    from instruments import ALL
+    p = params(DEFAULT)
+    for seed in range(1, 600):
+        zs, ac = generate_scenario(seed)
+        r = simulate(zs, ac, p)
         ph = sum(x["pos_breach"] and not x["loss_breach"] for x in r)
         lb = [i for i, x in enumerate(r, 1) if x["loss_breach"]]
-        if ph >= 3 and lb and 35 <= lb[0] <= 55:
-            print(seed, "pos hedges", ph, "loss step", lb, "final cum", round(r[-1]["cum"]), "max|pos|", max(abs(x["pos_close"]) for x in r))
+        if ph >= 2 and lb and 36 <= lb[0] <= 52:
+            print(seed, "pos hedges", ph, "loss step", lb, "final cum", round(r[-1]["cum"]))

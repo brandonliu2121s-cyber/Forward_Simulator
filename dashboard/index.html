@@ -1,0 +1,1375 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>html{color-scheme:dark;background:#161616}body{margin:0}</style></head><body>
+<title>Forward Desk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: dark bezel frame holding a bento grid, as in the reference. One saturated orange hero (cumulative P&L),
+   everything else quiet graphite. Committed single dark look, so every colour is an explicit token. */
+:root {
+  color-scheme: dark;
+  --page: #161616;
+  --bezel: #3b3b3b;
+  --device: #0a0a0a;
+  --card: #121212;
+  --card-line: #232323;
+  --tile: #1b1b1b;
+  --tile-line: #272727;
+  --raise: #262626;
+  --ink: #f5f5f3;
+  --ink-2: #a8a8a4;
+  --ink-3: #74746f;
+  --orange: #e4502b;
+  --orange-deep: #d4441f;
+  --yellow: #f6cf4f;
+  --mint: #8ce5a7;
+  --mint-ink: #0c2814;
+  --coral: #ff8566;
+  --coral-ink: #2a0d05;
+  --line-soft: rgba(255, 255, 255, 0.14);
+  --font: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: 0; padding: 0; }
+:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.stage {
+  padding-block: 20px 28px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.device {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 16px;
+  background: var(--device);
+  border-radius: 46px;
+  border: 3px solid var(--bezel);
+  box-shadow: inset 0 0 0 1px #000, 0 0 0 1px #000, 0 30px 60px rgba(0, 0, 0, 0.45);
+  display: grid;
+  gap: 12px;
+}
+.card { background: var(--card); border: 1px solid var(--card-line); border-radius: 26px; padding: 18px; min-width: 0; }
+.tile { background: var(--tile); border: 1px solid var(--tile-line); border-radius: 16px; padding: 14px 16px; min-width: 0; }
+.muted { color: var(--ink-2); }
+.dim { color: var(--ink-3); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---------- top bar ---------- */
+.top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 9px; height: 48px; padding: 0 18px 0 14px; border-radius: 999px;
+  background: var(--card); border: 1px solid var(--card-line); font-weight: 700; font-size: 16px; white-space: nowrap; }
+.brand svg { width: 20px; height: 20px; color: var(--mint); }
+.nav { display: flex; align-items: center; gap: 2px; height: 48px; padding: 5px; border-radius: 999px; background: var(--card);
+  border: 1px solid var(--card-line); min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.nav::-webkit-scrollbar { display: none; }
+.nav button { height: 38px; padding: 0 18px; border-radius: 999px; color: var(--ink-2); font-weight: 500; white-space: nowrap; }
+.nav button:hover { color: var(--ink); }
+.nav button[aria-current="page"] { background: #fff; color: #111; font-weight: 600; }
+.spacer { flex: 1; }
+.round { width: 48px; height: 48px; border-radius: 999px; background: var(--card); border: 1px solid var(--card-line);
+  display: grid; place-items: center; position: relative; flex: none; }
+.round:hover, .iconbtn:hover { background: var(--raise); }
+.round svg { width: 18px; height: 18px; }
+.round .dot { position: absolute; top: 12px; right: 13px; width: 7px; height: 7px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 0 2px var(--card); }
+.who { display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 12px 0 6px; border-radius: 999px; background: var(--card);
+  border: 1px solid var(--card-line); flex: none; }
+.who svg { width: 14px; height: 14px; color: var(--ink-2); }
+.badge { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; font-weight: 800; font-size: 12px; flex: none; letter-spacing: -0.02em; }
+.badge.sm { width: 26px; height: 26px; font-size: 10px; }
+.badge.lg { width: 46px; height: 46px; font-size: 14px; }
+.popwrap { position: relative; }
+.pop { position: absolute; z-index: 30; top: calc(100% + 8px); right: 0; min-width: 240px; max-width: min(340px, calc(100vw - 32px)); background: #1a1a1a;
+  border: 1px solid #333; border-radius: 18px; padding: 8px; box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6); }
+.pop h4 { margin: 8px 10px 6px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.pop .item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border-radius: 12px; text-align: left; }
+.pop .item:hover { background: var(--raise); }
+.pop .item[aria-current="true"] { background: var(--raise); }
+.pop .item small { color: var(--ink-3); margin-left: auto; }
+.pop .empty { padding: 14px 12px; color: var(--ink-2); }
+.pop .evt { display: flex; gap: 10px; padding: 9px 10px; border-radius: 12px; width: 100%; text-align: left; align-items: flex-start; }
+.pop .evt:hover { background: var(--raise); }
+.pop .evt i { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex: none; }
+
+/* ---------- shared bits ---------- */
+.card-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.card-head h2, .card h3 { margin: 0; font-size: 15px; font-weight: 500; letter-spacing: -0.005em; }
+.card-head .sp { flex: 1; min-width: 8px; }
+.iconbtn { width: 38px; height: 38px; border-radius: 12px; border: 1px solid var(--tile-line); background: var(--tile); display: grid; place-items: center; flex: none; }
+.iconbtn svg { width: 16px; height: 16px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--tile-line);
+  background: var(--tile); font-weight: 500; white-space: nowrap; }
+.pill:hover { background: var(--raise); }
+.pill svg { width: 13px; height: 13px; color: var(--ink-2); }
+.chip { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 10px; border-radius: 999px; font-weight: 700; font-size: 12px; white-space: nowrap; }
+.chip svg { width: 12px; height: 12px; }
+.chip.up { background: var(--mint); color: var(--mint-ink); }
+.chip.down { background: var(--coral); color: var(--coral-ink); }
+.chip.light { background: #fff; color: #161616; }
+.eyebrow { color: var(--ink-2); font-size: 12px; font-weight: 500; }
+.big { font-size: clamp(34px, 4.2vw, 52px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.05; }
+.big .ccy { font-size: 0.4em; font-weight: 600; letter-spacing: 0; color: inherit; opacity: 0.7; margin-right: 8px; vertical-align: 0.55em; }
+
+/* ---------- desk: performance card ---------- */
+.perf-head { margin-bottom: 14px; }
+.health { display: inline-flex; align-items: center; gap: 12px; height: 38px; padding: 0 14px 0 12px; border-radius: 999px; background: var(--tile); border: 1px solid var(--tile-line); }
+.health .ticks { display: flex; align-items: center; gap: 3px; height: 16px; }
+.health .ticks i { width: 2px; height: 16px; border-radius: 2px; background: rgba(255, 255, 255, 0.16); }
+.health .ticks i.on { background: var(--yellow); }
+.health b { font-size: 13px; }
+.perf { display: grid; grid-template-columns: minmax(250px, 0.78fr) minmax(0, 1.9fr); gap: 14px; align-items: stretch; }
+.left { display: grid; grid-template-rows: auto 1fr; gap: 18px; padding: 8px 4px 0 6px; min-width: 0; }
+.left .big { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+.kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: end; }
+.kpi .lab { display: flex; align-items: center; gap: 7px; color: var(--ink-2); font-size: 12px; margin-bottom: 8px; }
+.kpi .lab i { width: 2px; height: 11px; border-radius: 2px; display: block; }
+.kpi .val { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; }
+.kpi .sub { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+.hero { background: linear-gradient(180deg, #e8552f 0%, var(--orange-deep) 100%); border-radius: 22px; padding: 16px 18px 12px; color: #fff; min-width: 0; display: flex; flex-direction: column; }
+.hero-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.hero-top .t { font-size: 12.5px; font-weight: 600; opacity: 0.95; }
+.seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: rgba(0, 0, 0, 0.18); }
+.seg button { height: 24px; padding: 0 11px; border-radius: 999px; font-size: 11.5px; font-weight: 600; color: rgba(255, 255, 255, 0.8); }
+.seg button[aria-pressed="true"] { background: #fff; color: #1a1a1a; }
+.ranges { display: inline-flex; gap: 2px; margin-left: auto; }
+.ranges button { height: 24px; padding: 0 8px; border-radius: 8px; font-size: 11.5px; font-weight: 600; color: rgba(255, 255, 255, 0.78); }
+.ranges button[aria-pressed="true"] { color: #fff; text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 2px; }
+.hero-val { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 8px 0 4px; }
+.hero-val .big { font-size: clamp(32px, 3.6vw, 44px); }
+.plot { position: relative; flex: 1; min-height: 250px; margin-top: 4px; touch-action: pan-y; }
+.plot svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.plot .hit { cursor: crosshair; }
+.tip { position: absolute; z-index: 5; min-width: 176px; padding: 10px 12px; background: #161616; color: #fff; border: 1px solid #333; border-radius: 16px;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.5); pointer-events: none; font-size: 12px; }
+.tip[hidden] { display: none; }
+.tip .r { display: flex; justify-content: space-between; gap: 14px; padding: 2px 0; }
+.tip .r span { color: #a8a8a4; }
+.tip .r b { font-variant-numeric: tabular-nums; font-weight: 700; }
+.tip .mid { margin: 6px auto; width: max-content; padding: 4px 14px; border-radius: 999px; background: #2d2d2d; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tip .sub { margin-top: 6px; padding-top: 6px; border-top: 1px solid #2b2b2b; color: #a8a8a4; font-size: 11px; line-height: 1.5; }
+.tip .ev { margin-top: 5px; color: var(--yellow); font-weight: 700; font-size: 11px; }
+.tip .ev.loss { color: var(--coral); }
+
+/* ---------- watchlist ---------- */
+.watch { display: flex; align-items: center; gap: 12px; padding: 12px 14px 12px 22px; border-radius: 22px; }
+.watch > .lab { font-weight: 500; color: var(--ink-2); flex: none; }
+.wl { display: flex; flex: 1; min-width: 0; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; gap: 6px; }
+.wl::-webkit-scrollbar { display: none; }
+.wl-item { display: flex; align-items: center; gap: 12px; padding: 8px 18px 8px 10px; border-radius: 18px; flex: none; scroll-snap-align: start; border: 1px solid transparent; text-align: left; min-width: 230px; }
+.wl-item:hover { background: #181818; }
+.wl-item[aria-current="true"] { background: #1a1a1a; border-color: #2c2c2c; }
+.wl-item .nm { color: var(--ink-2); font-size: 12px; }
+.wl-item .px { font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+.wl-item .d { font-weight: 600; font-size: 12px; margin-left: 6px; }
+.wl-item .d.up { color: var(--mint); }
+.wl-item .d.down { color: var(--coral); }
+.wl-item svg.spark { width: 64px; height: 30px; margin-left: auto; flex: none; overflow: visible; }
+.wl-item + .wl-item { position: relative; }
+
+/* ---------- bottom row ---------- */
+.bottom { display: grid; grid-template-columns: 1.45fr 1fr 1fr; gap: 12px; }
+.bottom .card { min-height: 280px; display: flex; flex-direction: column; }
+.bars { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; min-height: 200px; }
+.barcol { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.bar { flex: 1; position: relative; border-radius: 16px; overflow: hidden; min-height: 180px;
+  background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.055) 0 1px, transparent 1px 5px), #181818; }
+.bar .fill { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 14px; padding: 9px 10px; color: #111; font-weight: 700; font-size: 13px; transition: height 0.5s ease; }
+.bar .fill.hatch { background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0 1px, transparent 1px 4px), #5b5b5b; color: #fff; }
+.bar .above { position: absolute; left: 10px; font-weight: 700; font-size: 13px; color: var(--ink); }
+.barcol .cap { text-align: center; color: var(--ink-2); font-size: 12px; }
+.tbl-mini { width: 100%; margin-top: 14px; border-collapse: collapse; }
+.tbl-mini td { padding: 10px 4px; border-bottom: 1px solid var(--card-line); }
+.tbl-mini td:last-child { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.risk .score { display: flex; align-items: baseline; gap: 6px; margin-top: 10px; }
+.risk .score b { font-size: 44px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
+.risk .score span { color: var(--ink-2); font-size: 18px; }
+.gauge { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; margin-top: 6px; }
+.gauge svg { width: 100%; max-height: 170px; display: block; }
+.gauge p { margin: 6px 0 0; text-align: center; color: var(--ink-2); font-size: 12px; }
+.insight { background: linear-gradient(180deg, #2b2b2a, #222221); border-color: #353534; }
+.insight .ttl { display: flex; align-items: center; gap: 10px; font-weight: 500; }
+.insight .ttl svg { width: 16px; height: 16px; }
+.insight .body { margin: 22px 0 16px; font-size: 13.5px; line-height: 1.55; color: #d6d6d2; flex: 1; }
+.insight .body p { margin: 0 0 8px; }
+.insight b { color: #fff; font-weight: 700; }
+.chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px; border-radius: 999px; background: #151515; border: 1px solid #2f2f2e; width: max-content; max-width: 100%; }
+.evchip { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 12px; background: #fff; color: #111; flex: none; }
+.evchip.pos { box-shadow: 0 0 0 2px #151515, 0 0 0 4px var(--yellow); }
+.evchip.loss { background: var(--orange); color: #fff; box-shadow: 0 0 0 2px #151515, 0 0 0 4px var(--orange); }
+.evchip.more { background: #2a2a2a; color: var(--ink-2); }
+.note { color: var(--ink-3); font-size: 11.5px; text-align: center; padding: 2px 8px 4px; }
+
+/* ---------- tables & forms (other views) ---------- */
+.page-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.page-head h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+.page-head p { margin: 2px 0 0; color: var(--ink-2); }
+.scroll { overflow-x: auto; border-radius: 16px; border: 1px solid var(--tile-line); max-height: 68vh; overflow-y: auto; }
+table.t { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.t th { position: sticky; top: 0; z-index: 2; background: #1c1c1c; color: var(--ink-2); font-weight: 600; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; text-align: right; padding: 10px 12px; white-space: nowrap; border-bottom: 1px solid var(--tile-line); }
+.t td { padding: 8px 12px; text-align: right; white-space: nowrap; border-bottom: 1px solid #1d1d1d; }
+.t th:first-child, .t td:first-child { text-align: left; }
+.t.mono td { font-family: var(--mono); font-size: 12px; }
+.t tr.hedge td { background: rgba(246, 207, 79, 0.09); }
+.t tr.loss td { background: rgba(228, 80, 43, 0.2); }
+.t tr.halt td { color: var(--ink-3); background: #0e0e0e; }
+.t tr.clickable { cursor: pointer; }
+.t tr.clickable:hover td { background: #1a1a1a; }
+.t tr.sel td { background: #1d1d1d; }
+.t .neg { color: var(--coral); }
+.t .pos { color: var(--mint); }
+.t td .cell { display: inline-flex; align-items: center; gap: 10px; }
+.actbtn { min-width: 58px; height: 26px; border-radius: 8px; font-weight: 700; font-size: 11px; font-family: var(--mono); border: 1px solid var(--tile-line); background: var(--tile); }
+.actbtn.BUY { color: var(--mint); } .actbtn.SELL { color: var(--coral); } .actbtn.NONE { color: var(--ink-3); }
+.cell-in, .field input[type="number"], .field select, .search { background: #0e0e0e; border: 1px solid #2c2c2c; border-radius: 10px; padding: 0 10px; height: 34px; width: 100%; }
+.cell-in { width: 70px; height: 26px; text-align: right; font-family: var(--mono); font-size: 12px; }
+.field input.ov { border-color: var(--orange); }
+.field label { display: block; color: var(--ink-2); font-size: 12px; margin-bottom: 6px; }
+.field small { display: block; color: var(--ink-3); margin-top: 4px; font-size: 11px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+.cols { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.btn { height: 38px; padding: 0 16px; border-radius: 12px; font-weight: 600; border: 1px solid var(--tile-line); background: var(--tile); }
+.btn:hover { background: var(--raise); }
+.btn.primary { background: #fff; color: #111; border-color: #fff; }
+.btn.orange { background: var(--orange); border-color: var(--orange); color: #fff; }
+.search { max-width: 280px; height: 38px; }
+.stepper { display: inline-flex; align-items: center; gap: 4px; padding: 3px; border-radius: 999px; background: rgba(0, 0, 0, 0.22); }
+.stepper button { width: 32px; height: 32px; border-radius: 50%; background: #fff; color: #111; font-weight: 800; font-size: 16px; line-height: 1; }
+.stepper b { min-width: 74px; text-align: center; font-variant-numeric: tabular-nums; }
+.recipe { width: 100%; border-collapse: collapse; margin-top: 12px; }
+.recipe td { padding: 10px 2px; border-bottom: 1px solid var(--card-line); }
+.recipe td:last-child { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.recipe tr.total td { border-bottom: 0; font-size: 15px; font-weight: 700; color: var(--yellow); }
+.quote2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.qbox { background: rgba(0, 0, 0, 0.22); border-radius: 16px; padding: 14px 16px; min-width: 0; }
+.qbox .big { font-size: clamp(26px, 3vw, 38px); }
+.qbox .eyebrow { color: rgba(255, 255, 255, 0.85); }
+.ubar { display: inline-block; width: 90px; height: 8px; border-radius: 4px; background: #222; position: relative; vertical-align: middle; }
+.ubar i { position: absolute; top: 0; bottom: 0; background: var(--orange); border-radius: 4px; }
+.ubar:after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: #555; }
+.toggle { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
+.toggle input { width: 18px; height: 18px; accent-color: var(--orange); }
+.foot { color: var(--ink-3); font-size: 11.5px; padding: 4px 10px 2px; text-align: center; }
+
+/* ---------- data dialog (import / export) ---------- */
+.backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.68); display: grid; place-items: center;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.dlg { width: min(780px, 100%); max-height: 100%; overflow: auto; background: #141414; border: 1px solid #2e2e2e; border-radius: 26px; padding: 20px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7); display: grid; gap: 14px; }
+.dlg h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.tabs { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--tile); border: 1px solid var(--tile-line); }
+.tabs button { height: 30px; padding: 0 16px; border-radius: 999px; color: var(--ink-2); font-weight: 600; }
+.tabs button[aria-pressed="true"] { background: #fff; color: #111; }
+.tabs button:disabled { opacity: 0.35; cursor: not-allowed; }
+.opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.opt { text-align: left; padding: 12px 14px; border-radius: 16px; background: var(--tile); border: 1px solid var(--tile-line); display: grid; gap: 4px; }
+.opt span { color: var(--ink-2); font-size: 12px; line-height: 1.4; }
+.opt[aria-checked="true"] { border-color: var(--orange); background: #211510; }
+.fmtrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mono-area { width: 100%; min-height: 190px; resize: vertical; background: #0b0b0b; color: #d8d8d4; border: 1px solid #2c2c2c; border-radius: 14px; padding: 12px; font-family: var(--mono); font-size: 12px; line-height: 1.5; white-space: pre; overflow: auto; }
+.dlg-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.drop { border: 1.5px dashed #3a3a3a; border-radius: 18px; padding: 18px; text-align: center; background: #101010; }
+.drop.over { border-color: var(--orange); background: #1b120e; }
+.drop input { max-width: 100%; color: var(--ink-2); }
+.lab { color: var(--ink-2); font-size: 12px; }
+.prev { border-radius: 16px; padding: 12px 14px; border: 1px solid var(--tile-line); background: var(--tile); }
+.prev.ok { border-color: #2c5b3b; background: #0f1d14; }
+.prev.bad { border-color: #6a2a1b; background: #1d100c; }
+.prev p { margin: 0 0 6px; }
+.prev ul { margin: 0 0 10px; padding-left: 18px; }
+.prev li.err { color: var(--coral); }
+.prev li.warn { color: var(--yellow); }
+.fmt summary { cursor: pointer; color: var(--ink-2); }
+.fmt pre { margin: 8px 0 0; padding: 12px; background: #0b0b0b; border-radius: 12px; overflow-x: auto; font-family: var(--mono); font-size: 11.5px; line-height: 1.55; color: #c9c9c4; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); z-index: 60; max-width: min(520px, calc(100vw - 32px));
+  background: #fff; color: #111; padding: 10px 16px; border-radius: 14px; font-weight: 600; box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5); }
+.toast[hidden] { display: none; }
+.iconbtn.x { font-size: 18px; line-height: 1; }
+
+@media (max-width: 480px) {
+  .dlg { padding: 16px; border-radius: 22px; }
+  .dlg .card-head { flex-wrap: nowrap; gap: 8px; }
+  .dlg h2 { font-size: 16px; white-space: nowrap; }
+  .tabs button { padding: 0 11px; }
+}
+@media (max-width: 1080px) {
+  .perf { grid-template-columns: 1fr; }
+  .bottom { grid-template-columns: 1fr 1fr; }
+  .bottom .bars-card { grid-column: 1 / -1; }
+}
+@media (max-width: 720px) {
+  .device { padding: 8px; border-radius: 28px; border-width: 2px; }
+  .card { padding: 14px; border-radius: 20px; }
+  .top { flex-wrap: wrap; }
+  .nav { order: 3; width: 100%; }
+  .brand { padding: 0 14px; }
+  .bottom { grid-template-columns: 1fr; }
+  .watch { padding-left: 14px; }
+  .watch > .lab { display: none; }
+  .wl-item { min-width: 214px; }
+  .ranges { margin-left: 0; }
+  .quote2 { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="stage"><div class="device" id="app" aria-live="polite"></div></div>
+<div id="dlg"></div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+/* Simulation engine for the forwards market-making dashboard.
+ * A line-for-line port of reference_model.py (which the Excel workbook is also verified against).
+ * Pure functions, no DOM: runs in the browser and in Node (see tests/test_dashboard_engine.py). */
+const Engine = (function () {
+  // Excel ROUND semantics (half away from zero)
+  const rnd = (x) => (x < 0 ? -Math.round(-x) : Math.round(x));
+  const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+
+  /** F = S x (1 + rateB x d/basisB) / (1 + rateA x d/basisA): interest-rate parity (FX) or cost of carry (commodity). */
+  function fairForward(spot, p) {
+    const d = p.tenor_days;
+    return (spot * (1 + (p.rate_b * d) / p.basis_b)) / (1 + (p.rate_a * d) / p.basis_a);
+  }
+
+  function skewTicks(pos, p) {
+    return -clamp(pos / p.pos_limit, -1, 1) * p.max_skew_ticks;
+  }
+
+  function quote(fwd, pos, p) {
+    const skew = skewTicks(pos, p);
+    const bid = rnd(fwd / p.tick + skew - p.spread_ticks / 2) * p.tick;
+    return { skew, bid, ask: bid + p.spread_ticks * p.tick };
+  }
+
+  function simulate(zs, acts, p) {
+    const rows = [];
+    let spot = p.spot_init;
+    let fwdPrev = fairForward(spot, p);
+    let pos = p.start_pos, cum = 0, halted = 0;
+    const hedgeTarget = p.hedge_target_pct * p.pos_limit;
+    for (let i = 0; i < zs.length; i++) {
+      const z = zs[i], act = acts[i];
+      spot = spot + z * p.step_vol_ticks * p.tick;
+      const fwd = fairForward(spot, p);
+      const q = quote(fwd, pos, p);
+      const live = halted === 0;
+      let fill = 0;
+      if (live && act === 'BUY') fill = -p.clip;          // client lifts our ask: we go shorter
+      else if (live && act === 'SELL') fill = p.clip;     // client hits our bid: we go longer
+      const posClient = pos + fill;
+      let edge = 0;
+      if (fill < 0) edge = Math.abs(fill) * (q.ask - fwd);
+      else if (fill > 0) edge = fill * (fwd - q.bid);
+      const mtm = pos * (fwd - fwdPrev);
+      const cumPre = cum + mtm + edge;
+      const posBreach = Math.abs(posClient) > p.pos_limit ? 1 : 0;
+      const lossBreach = !halted && cumPre <= -p.loss_limit ? 1 : 0;
+      let hedge = 0;
+      if (lossBreach) hedge = -posClient;
+      else if (posBreach) hedge = -(posClient - (posClient > 0 ? 1 : -1) * hedgeTarget);
+      const hedgeCost = -Math.abs(hedge) * p.hedge_cost_ticks * p.tick;
+      const posClose = posClient + hedge;
+      const stepPnl = mtm + edge + hedgeCost;
+      cum += stepPnl;
+      halted = p.halt_on_loss === 1 ? Math.max(halted, lossBreach) : 0;
+      rows.push({
+        step: i + 1, z, act, spot, fwd, pos_open: pos, util: pos / p.pos_limit, skew: q.skew, bid: q.bid, ask: q.ask,
+        live, fill, edge, mtm, pos_breach: posBreach, loss_breach: lossBreach, hedge, hedge_cost: hedgeCost,
+        pos_client: posClient, pos_close: posClose, step_pnl: stepPnl, cum, halted,
+        trigger: lossBreach ? 'LOSS LIMIT' : posBreach ? 'POSITION LIMIT' : '',
+      });
+      pos = posClose;
+      fwdPrev = fwd;
+    }
+    return rows;
+  }
+
+  function summarize(rows, p) {
+    const n = rows.length;
+    const sum = (k) => rows.reduce((a, r) => a + r[k], 0);
+    const fills = rows.filter((r) => r.fill !== 0);
+    const lossRow = rows.find((r) => r.loss_breach);
+    const posHedges = rows.filter((r) => r.pos_breach && !r.loss_breach).length;
+    const lossFlat = rows.filter((r) => r.loss_breach).length;
+    const minCum = Math.min(0, ...rows.map((r) => r.cum));
+    const peakAfterClient = Math.max(0, ...rows.map((r) => Math.abs(r.pos_client)));
+    const peakClose = Math.max(0, ...rows.map((r) => Math.abs(r.pos_close)));
+    const last = rows[n - 1] || { cum: 0, pos_close: p.start_pos, fwd: fairForward(p.spot_init, p), spot: p.spot_init };
+    const s = {
+      n, cum: last.cum, capture: sum('edge'), mtm: sum('mtm'), hedgeCost: sum('hedge_cost'),
+      fills: fills.length, buys: rows.filter((r) => r.fill < 0).length, sells: rows.filter((r) => r.fill > 0).length,
+      volume: fills.reduce((a, r) => a + Math.abs(r.fill), 0), hedgeVolume: rows.reduce((a, r) => a + Math.abs(r.hedge), 0),
+      posHedges, lossFlat, lossStep: lossRow ? lossRow.step : null,
+      peakAfterClient, peakClose, peakUtil: peakAfterClient / p.pos_limit,
+      meanUtil: n ? rows.reduce((a, r) => a + Math.abs(r.pos_close) / p.pos_limit, 0) / n : 0,
+      minCum, lossUsed: Math.max(0, -minCum) / p.loss_limit,
+      maxSkewUsed: p.max_skew_ticks ? Math.max(0, ...rows.map((r) => Math.abs(r.skew))) / p.max_skew_ticks : 0,
+      liveSteps: rows.filter((r) => r.live).length, halted: !!(last.halted),
+      hitRate: n ? fills.length / n : 0, endPos: last.pos_close, endFwd: last.fwd, endSpot: last.spot,
+    };
+    s.health = n ? Math.round((100 * s.liveSteps) / n) : 100;
+    s.risk = riskScore(s);
+    return s;
+  }
+
+  /** 0-100, higher = safer: half inventory headroom, half loss headroom, minus a penalty per limit event. */
+  function riskScore(s) {
+    const posHead = 1 - clamp(s.meanUtil, 0, 1);
+    const lossHead = 1 - clamp(s.lossUsed, 0, 1);
+    return clamp(Math.round(100 * (0.5 * posHead + 0.5 * lossHead) - 4 * s.posHedges - 10 * s.lossFlat), 0, 100);
+  }
+
+  /** Same scenario with the skew switched off: shows what inventory skew is worth. */
+  function riskWithoutSkew(zs, acts, p) {
+    const q = Object.assign({}, p, { max_skew_ticks: 0 });
+    return summarize(simulate(zs, acts, q), q).risk;
+  }
+
+  // ---- scenario generation (browser RNG; the shipped default scenario comes from reference_model.py seed 277)
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function generateScenario(seed, n) {
+    const rand = mulberry32(seed);
+    const gauss = () => Math.sqrt(-2 * Math.log(1 - rand())) * Math.cos(2 * Math.PI * rand());
+    const zs = [], acts = [];
+    let bias = 0;
+    for (let i = 0; i < n; i++) {
+      zs.push(Math.round(gauss() * 10) / 10);
+      if (rand() < 0.15) bias = [-1, 0, 1][Math.floor(rand() * 3)];
+      if (rand() < 0.3) acts.push('NONE');
+      else {
+        const side = bias !== 0 && rand() < 0.65 ? bias : rand() < 0.5 ? -1 : 1;
+        acts.push(side > 0 ? 'BUY' : 'SELL');
+      }
+    }
+    return { zs, acts };
+  }
+
+  return { fairForward, skewTicks, quote, simulate, summarize, riskScore, riskWithoutSkew, generateScenario, rnd };
+})();
+if (typeof module !== 'undefined') module.exports = Engine;
+
+</script>
+<script>
+/* Import / export for the Forward Desk dashboard: CSV and JSON.  Pure functions, no DOM (tested in Node).
+ *
+ * Formats (all round-trip):
+ *   scenario  CSV  step,move_sigma,action          JSON {"moves":[..],"actions":[..]}
+ *   run       CSV  one row per step (re-importable as a scenario)    JSON {"summary":..,"steps":[..]}
+ *   library   CSV  one row per instrument            JSON {"instruments":[..]}
+ *   session   JSON instrument + overrides + globals + scenario + results
+ * The scenario CSV matches columns A:C of the Excel workbook's Simulation sheet, and an exported Excel
+ * "Instruments" sheet (percentages like 4.00%, "n/a" cells, extra computed columns) imports as a library.
+ * Imported text is untrusted data: everything is validated, nothing is evaluated. */
+const IO = (function () {
+  const MAX_BYTES = 2 * 1024 * 1024, MAX_STEPS = 500, MAX_Z = 10;
+  const PARAM_KEYS = ['spot_init', 'rate_a', 'rate_b', 'basis_a', 'basis_b', 'tenor_days', 'tick', 'clip', 'spread_ticks',
+    'max_skew_ticks', 'pos_limit', 'loss_limit', 'hedge_cost_ticks', 'step_vol_ticks'];
+  const GLOBAL_KEYS = ['hedge_target_pct', 'halt_on_loss', 'start_pos'];
+  const LIB_COLS = ['name', 'type', 'unit', 'pnl', 'spot', 'rate_a', 'rate_b', 'basis_a', 'basis_b', 'tenor_days', 'tick', 'clip',
+    'spread_ticks', 'max_skew_ticks', 'pos_limit', 'loss_limit', 'hedge_cost_ticks', 'step_vol_ticks', 'note'];
+  const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  const norm = (s) => String(s == null ? '' : s).toLowerCase().replace(/p\s*&\s*l/g, 'pnl').replace(/[^a-z0-9]/g, '');   // 'P&L' -> 'pnl'
+
+  // header text (normalised) -> canonical instrument field. Covers our own CSV and the Excel Instruments sheet headers.
+  const ALIAS = {
+    name: 'name', instrument: 'name', type: 'type', unit: 'unit', positionunit: 'unit', pnl: 'pnl', pnlccy: 'pnl', pnlcurrency: 'pnl',
+    spot: 'spot_init', spotinit: 'spot_init', ratea: 'rate_a', rateb: 'rate_b', basisa: 'basis_a', basisb: 'basis_b',
+    daybasisa: 'basis_a', daybasisb: 'basis_b', tenordays: 'tenor_days', tenor: 'tenor_days', tick: 'tick', ticksize: 'tick',
+    clip: 'clip', clipsize: 'clip', quotesize: 'clip', quotesizeunits: 'clip', spreadticks: 'spread_ticks',
+    maxskewticks: 'max_skew_ticks', poslimit: 'pos_limit', positionlimit: 'pos_limit', positionlimitunits: 'pos_limit',
+    losslimit: 'loss_limit', losslimitpnlccy: 'loss_limit', hedgecostticks: 'hedge_cost_ticks', stepvolticks: 'step_vol_ticks',
+    note: 'note', sourcenote: 'note',
+  };
+  const RATE_KEYS = ['rate_a', 'rate_b'];
+
+  // ------------------------------------------------------------------ CSV
+  function parseCSV(text) {
+    text = String(text).replace(/^﻿/, '');
+    const first = text.split(/\r?\n/, 1)[0] || '';
+    const delim = [',', ';', '\t'].map((d) => [d, first.split(d).length]).sort((a, b) => b[1] - a[1])[0][0];
+    const rows = []; let row = [], f = '', q = false, any = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) {
+        if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c;
+      } else if (c === '"') { q = true; any = true; }
+      else if (c === delim) { row.push(f); f = ''; any = true; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i + 1] === '\n') i++;
+        row.push(f); f = '';
+        if (any || row.some((x) => x !== '')) rows.push(row);
+        row = []; any = false;
+      } else { f += c; any = true; }
+    }
+    row.push(f);
+    if (any || row.some((x) => x !== '')) rows.push(row);
+    return rows;
+  }
+  const r12 = (v) => (typeof v === 'number' && Number.isFinite(v) ? Number(v.toPrecision(12)) : v);   // drop floating-point noise (1.2800116435630007 -> 1.28001164356)
+  function csvCell(v) {
+    if (v == null) return '';
+    if (typeof v === 'number') return Number.isFinite(v) ? String(Object.is(v, -0) ? 0 : r12(v)) : '';
+    let s = String(v);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;                 // spreadsheet formula-injection guard
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  const toCSV = (headers, rows) => [headers.map(csvCell).join(',')].concat(rows.map((r) => r.map(csvCell).join(','))).join('\r\n') + '\r\n';
+  const unguard = (s) => (typeof s === 'string' ? s.replace(/^'(?=[=+\-@])/, '') : s);
+
+  // ------------------------------------------------------------------ value parsing
+  function num(v) {
+    if (typeof v === 'number') return v;
+    if (typeof v !== 'string') return NaN;
+    let s = v.trim();
+    if (s === '' || /^n\/?a$/i.test(s)) return NaN;
+    let pct = false;
+    if (s.endsWith('%')) { pct = true; s = s.slice(0, -1).trim(); }
+    if (/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) s = s.replace(/,/g, '');
+    const n = Number(s);
+    return pct ? n / 100 : n;
+  }
+  const cleanName = (s) => String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 40);
+  const cleanTxt = (s, n) => unguard(String(s == null ? '' : s)).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, n);
+
+  /** Validate one instrument definition (flat object with canonical keys). Returns {ok:{...}} or {error:'...'} */
+  function buildInstrument(raw, label) {
+    const name = cleanName(unguard(raw.name));
+    const at = label || name || '(unnamed)';
+    if (!name) return { error: `${at}: missing name` };
+    if (['__proto__', 'constructor', 'prototype'].includes(name)) return { error: `${at}: reserved name` };
+    const t = String(raw.type == null ? '' : raw.type).trim();
+    const type = /^fx$/i.test(t) ? 'FX' : /^commod/i.test(t) ? 'Commodity' : null;
+    if (!type) return { error: `${name}: type must be FX or Commodity` };
+    const unit = cleanTxt(raw.unit, 12);
+    if (!unit) return { error: `${name}: missing position unit` };
+    const pnl = cleanTxt(raw.pnl, 12) || (type === 'Commodity' ? 'USD' : '');
+    if (!pnl) return { error: `${name}: missing P&L currency` };
+    const params = {};
+    for (const k of PARAM_KEYS) {
+      const v = num(raw[k]);
+      if (!Number.isFinite(v)) return { error: `${name}: ${k} is missing or not a number` };
+      params[k] = v;
+    }
+    const pos = ['spot_init', 'tick', 'clip', 'pos_limit', 'loss_limit', 'tenor_days', 'basis_a', 'basis_b'];
+    for (const k of pos) if (!(params[k] > 0)) return { error: `${name}: ${k} must be greater than 0` };
+    for (const k of ['spread_ticks', 'max_skew_ticks', 'hedge_cost_ticks', 'step_vol_ticks']) if (params[k] < 0) return { error: `${name}: ${k} cannot be negative` };
+    for (const k of RATE_KEYS) if (!(params[k] > -0.5 && params[k] < 1)) return { error: `${name}: ${k} = ${params[k]} is outside -50%..100%. Use a fraction (0.04) or a percent sign (4%).` };
+    if (params.tenor_days > 3650) return { error: `${name}: tenor_days is unreasonably large` };
+    return { ok: { name, type, unit, pnl, note: cleanTxt(raw.note, 240), params } };
+  }
+
+  // ------------------------------------------------------------------ scenario parsing
+  function buildScenario(items, where) {
+    const errors = [], warnings = [], zs = [], acts = [];
+    items.forEach((it, i) => {
+      const z = num(it.z), line = `${where} ${it.line == null ? i + 1 : it.line}`;
+      if (!Number.isFinite(z) || Math.abs(z) > MAX_Z) { errors.push(`${line}: market move must be a number between -${MAX_Z} and ${MAX_Z} (got "${String(it.z).slice(0, 20)}")`); return; }
+      const a = String(it.a == null ? '' : it.a).trim().toUpperCase();
+      const act = a === 'BUY' || a === 'B' ? 'BUY' : a === 'SELL' || a === 'S' ? 'SELL' : a === 'NONE' || a === 'N' || a === '' || a === '-' ? 'NONE' : null;
+      if (!act) { errors.push(`${line}: action must be BUY, SELL or NONE (got "${a.slice(0, 20)}")`); return; }
+      zs.push(Math.round(z * 1e6) / 1e6); acts.push(act);
+    });
+    if (!errors.length && !zs.length) errors.push('No steps found.');
+    if (zs.length > MAX_STEPS) { warnings.push(`Only the first ${MAX_STEPS} of ${zs.length} steps were kept.`); zs.length = MAX_STEPS; acts.length = MAX_STEPS; }
+    return { zs, acts, errors, warnings };
+  }
+
+  function scenarioFromCSVRows(rows, canonCols, headers) {
+    const norms = headers.map(norm);
+    const mi = norms.findIndex((h) => h.includes('move') || h.includes('sigma') || h.includes('shock') || h === 'z');
+    const ai = norms.findIndex((h) => h.includes('action'));
+    if (mi < 0 || ai < 0) return null;
+    const items = rows.slice(1).map((r, i) => ({ z: r[mi], a: r[ai], line: i + 2 }));
+    return Object.assign({ kind: 'scenario', source: 'csv' }, buildScenario(items, 'Line'));
+  }
+
+  function scenarioFromJSON(o) {
+    let items = null;
+    const arr = (x) => (Array.isArray(x) ? x : null);
+    if (arr(o)) items = o.map((r) => (r && typeof r === 'object' ? { z: firstOf(r, ['move_sigma', 'move', 'z', 'sigma', 'market_move']), a: firstOf(r, ['action', 'client_action', 'client']) } : { z: NaN, a: '' }));
+    else if (o && typeof o === 'object') {
+      const m = arr(o.moves) || arr(o.move_sigma) || arr(o.zs), a = arr(o.actions) || arr(o.acts);
+      if (m && a) {
+        if (m.length !== a.length) return { kind: 'scenario', zs: [], acts: [], errors: [`moves (${m.length}) and actions (${a.length}) must have the same length`], warnings: [] };
+        items = m.map((z, i) => ({ z, a: a[i] }));
+      } else if (arr(o.steps)) return scenarioFromJSON(o.steps);
+    }
+    if (!items) return null;
+    return Object.assign({ kind: 'scenario', source: 'json' }, buildScenario(items, 'Step'));
+  }
+  const firstOf = (r, keys) => { for (const k of keys) if (own(r, k)) return r[k]; return undefined; };
+
+  // ------------------------------------------------------------------ library parsing
+  function canonRecord(obj) {                      // object with any alias keys (or nested params) -> canonical flat record
+    const rec = {};
+    const src = Object.assign({}, obj && typeof obj.params === 'object' && obj.params ? obj.params : {}, obj);
+    for (const k of Object.keys(src)) {
+      if (k === '__proto__') continue;
+      const c = ALIAS[norm(k)];
+      if (c && !own(rec, c)) rec[c] = src[k];
+    }
+    return rec;
+  }
+  function libraryFromRecords(recs) {
+    const errors = [], warnings = [], list = [], seen = {};
+    recs.forEach((r, i) => {
+      const res = buildInstrument(r, `Row ${i + 1}`);
+      if (res.error) { errors.push(res.error); return; }
+      if (own(seen, res.ok.name)) { warnings.push(`${res.ok.name}: appears more than once, the last row wins.`); list[seen[res.ok.name]] = res.ok; return; }
+      seen[res.ok.name] = list.length; list.push(res.ok);
+    });
+    if (!list.length && !errors.length) errors.push('No instruments found.');
+    return { kind: 'library', instruments: list, errors, warnings, skipped: errors.length };
+  }
+  function libraryFromCSVRows(rows, canon) {
+    const recs = rows.slice(1).map((r) => { const o = {}; canon.forEach((c, i) => { if (c && !own(o, c)) o[c] = r[i]; }); return o; });
+    return libraryFromRecords(recs);
+  }
+
+  // ------------------------------------------------------------------ session parsing
+  function sessionFromJSON(o) {
+    const errors = [], warnings = [];
+    const inst = typeof o.instrument === 'string' ? cleanName(o.instrument) : '';
+    if (!inst) errors.push('Session has no "instrument".');
+    let definition = null;
+    if (o.instrument_definition && typeof o.instrument_definition === 'object') {
+      const r = buildInstrument(canonRecord(o.instrument_definition), 'instrument_definition');
+      if (r.error) errors.push(r.error);
+      else if (r.ok.name !== inst) errors.push(`instrument_definition is for "${r.ok.name}" but the session instrument is "${inst}".`);
+      else definition = r.ok;
+    }
+    const overrides = {};
+    if (o.overrides != null) {
+      if (typeof o.overrides !== 'object' || Array.isArray(o.overrides)) errors.push('"overrides" must be an object.');
+      else for (const k of Object.keys(o.overrides)) {
+        if (!PARAM_KEYS.includes(k)) { warnings.push(`Ignored unknown override "${k.slice(0, 30)}".`); continue; }
+        const v = o.overrides[k];
+        if (typeof v !== 'number' || !Number.isFinite(v)) errors.push(`Override ${k} must be a number.`);
+        else overrides[k] = v;
+      }
+    }
+    const globals = {};
+    if (o.globals != null) {
+      if (typeof o.globals !== 'object' || Array.isArray(o.globals)) errors.push('"globals" must be an object.');
+      else for (const k of Object.keys(o.globals)) {
+        if (!GLOBAL_KEYS.includes(k)) { warnings.push(`Ignored unknown setting "${k.slice(0, 30)}".`); continue; }
+        const v = o.globals[k];
+        if (typeof v !== 'number' || !Number.isFinite(v)) errors.push(`Setting ${k} must be a number.`);
+        else if (k === 'hedge_target_pct' && (v < 0 || v > 1)) errors.push('hedge_target_pct must be between 0 and 1.');
+        else if (k === 'halt_on_loss' && v !== 0 && v !== 1) errors.push('halt_on_loss must be 0 or 1.');
+        else globals[k] = v;
+      }
+    }
+    let scenario = null;
+    if (o.scenario != null) {
+      const sc = scenarioFromJSON(o.scenario);
+      if (!sc) errors.push('Could not read "scenario" (expected moves and actions).');
+      else { errors.push(...sc.errors); warnings.push(...sc.warnings); if (!sc.errors.length) scenario = { zs: sc.zs, acts: sc.acts, seed: typeof o.scenario.seed === 'number' ? o.scenario.seed : null, note: cleanTxt(o.scenario.note, 60) || 'Imported session' }; }
+    }
+    return { kind: 'session', instrument: inst, definition, overrides, globals, scenario, errors, warnings };
+  }
+
+  // ------------------------------------------------------------------ entry point
+  function parseImport(text, fileName) {
+    const fail = (m) => ({ kind: null, errors: [m], warnings: [] });
+    text = String(text == null ? '' : text);
+    if (text.length > MAX_BYTES) return fail('That is over 2 MB, which is more than this tool will read.');
+    const t = text.trim();
+    if (!t) return fail('Nothing to import: choose a file or paste some text.');
+    if (/^[[{]/.test(t)) {
+      let o;
+      try { o = JSON.parse(t); } catch (e) { return fail('This looks like JSON but it is not valid: ' + String(e.message).slice(0, 120)); }
+      if (Array.isArray(o)) {
+        const f = o[0];
+        if (f && typeof f === 'object' && (own(f, 'action') || own(f, 'client_action'))) return scenarioFromJSON(o);
+        if (f && typeof f === 'object' && (own(f, 'name') || own(f, 'instrument'))) return libraryFromRecords(o.map((x) => canonRecord(x)));
+        return fail('A JSON list must contain steps (move_sigma, action) or instruments (name, type, ...).');
+      }
+      if (o && typeof o === 'object') {
+        if (o.format === 'forward-desk-session' || (own(o, 'instrument') && (own(o, 'scenario') || own(o, 'overrides')))) return sessionFromJSON(o);
+        if (Array.isArray(o.instruments)) return libraryFromRecords(o.instruments.map((x) => canonRecord(x)));
+        const sc = scenarioFromJSON(own(o, 'scenario') && o.scenario && typeof o.scenario === 'object' ? o.scenario : o);
+        if (sc) return sc;
+      }
+      return fail('Unrecognised JSON. Expected a session, a scenario (moves + actions) or a library ({"instruments": [...]}).');
+    }
+    const rows = parseCSV(t);
+    if (rows.length < 2) return fail('The CSV needs a header row and at least one data row.');
+    const headers = rows[0], canon = headers.map((h) => ALIAS[norm(h)] || null);
+    const paramHits = canon.filter((c) => PARAM_KEYS.includes(c)).length;
+    if (canon.includes('name') && paramHits >= 5) return libraryFromCSVRows(rows, canon);
+    const sc = scenarioFromCSVRows(rows, canon, headers);
+    if (sc) return sc;
+    return fail('Could not recognise the columns. A scenario needs "move" and "action" columns; a library needs name, type, unit, spot, rate_a, rate_b and the other instrument columns.');
+  }
+
+  // ------------------------------------------------------------------ exports
+  const RUN_COLS = [['step', 'step'], ['move_sigma', 'z'], ['action', 'act'], ['spot', 'spot'], ['fair_forward', 'fwd'], ['open_position', 'pos_open'],
+    ['skew_ticks', 'skew'], ['bid', 'bid'], ['ask', 'ask'], ['fill_units', 'fill'], ['spread_capture', 'edge'], ['mtm', 'mtm'], ['hedge_trigger', 'trigger'],
+    ['hedge_units', 'hedge'], ['hedge_cost', 'hedge_cost'], ['close_position', 'pos_close'], ['step_pnl', 'step_pnl'], ['cum_pnl', 'cum']];
+  const runHeaders = () => RUN_COLS.map((c) => c[0]).concat('status');
+  const runRow = (r) => RUN_COLS.map((c) => r[c[1]]).concat(r.live ? 'LIVE' : 'HALTED');
+  const runObj = (r) => { const o = {}; RUN_COLS.forEach((c) => { o[c[0]] = r12(r[c[1]]); }); o.status = r.live ? 'LIVE' : 'HALTED'; return o; };
+  const iso = () => new Date().toISOString();
+
+  const exportRunCSV = (rows) => toCSV(runHeaders(), rows.map(runRow));
+  const exportRunJSON = (meta, rows) => JSON.stringify({ format: 'forward-desk-run', version: 1, exported: iso(), instrument: meta.instrument, unit: meta.unit, pnl_currency: meta.pnl,
+    parameters: meta.params, globals: meta.globals, summary: meta.summary, steps: rows.map(runObj) }, null, 2);
+  const exportScenarioCSV = (zs, acts) => toCSV(['step', 'move_sigma', 'action'], zs.map((z, i) => [i + 1, z, acts[i]]));
+  const exportScenarioJSON = (sc) => JSON.stringify({ format: 'forward-desk-scenario', version: 1, exported: iso(), seed: sc.seed, note: sc.note, moves: sc.zs, actions: sc.acts }, null, 2);
+  const flatInst = (i) => { const o = { name: i.name, type: i.type, unit: i.unit, pnl: i.pnl }; o.spot = i.params.spot_init; PARAM_KEYS.slice(1).forEach((k) => { o[k] = i.params[k]; }); o.note = i.note || ''; return o; };
+  const exportLibraryCSV = (list) => toCSV(LIB_COLS, list.map((i) => { const o = flatInst(i); return LIB_COLS.map((c) => o[c]); }));
+  const exportLibraryJSON = (list) => JSON.stringify({ format: 'forward-desk-library', version: 1, exported: iso(), instruments: list.map(flatInst) }, null, 2);
+  const exportSessionJSON = (s) => JSON.stringify({ format: 'forward-desk-session', version: 1, exported: iso(), instrument: s.instrument, instrument_definition: flatInst(s.definition),
+    overrides: s.overrides, globals: s.globals, scenario: { seed: s.scenario.seed, note: s.scenario.note, moves: s.scenario.zs, actions: s.scenario.acts },
+    summary: s.summary, steps: s.rows.map(runObj) }, null, 2);
+
+  return { parseCSV, toCSV, parseImport, exportRunCSV, exportRunJSON, exportScenarioCSV, exportScenarioJSON, exportLibraryCSV, exportLibraryJSON,
+    exportSessionJSON, PARAM_KEYS, GLOBAL_KEYS, MAX_STEPS, MAX_BYTES };
+})();
+if (typeof module !== 'undefined') module.exports = IO;
+
+</script>
+<script>
+const DATA = {"instruments":[{"name":"USD/SGD","type":"FX","unit":"USD","pnl":"SGD","note":"Original project brief: USD 4.00%, SGD 0.55%, 45-day tenor, USD 250k, 5-tick spread. Spot illustrative.","params":{"rate_a":0.04,"rate_b":0.0055,"basis_a":360,"basis_b":365,"tenor_days":45,"tick":0.0001,"clip":250000,"spread_ticks":5,"max_skew_ticks":3,"pos_limit":1000000,"loss_limit":1800,"hedge_cost_ticks":1.0,"step_vol_ticks":3,"spot_init":1.285}},{"name":"EUR/USD","type":"FX","unit":"EUR","pnl":"USD","note":"Most liquid pair: tight spread. Rates illustrative (EUR 2.00%, USD 4.00%).","params":{"rate_a":0.02,"rate_b":0.04,"basis_a":360,"basis_b":360,"tenor_days":45,"tick":0.0001,"clip":250000,"spread_ticks":2,"max_skew_ticks":1,"pos_limit":1000000,"loss_limit":2400,"hedge_cost_ticks":0.5,"step_vol_ticks":4,"spot_init":1.16}},{"name":"GBP/USD","type":"FX","unit":"GBP","pnl":"USD","note":"Rates illustrative (GBP 4.00%, USD 4.00%): near-zero carry, forward ~ spot.","params":{"rate_a":0.04,"rate_b":0.04,"basis_a":365,"basis_b":360,"tenor_days":45,"tick":0.0001,"clip":250000,"spread_ticks":3,"max_skew_ticks":2,"pos_limit":1000000,"loss_limit":3000,"hedge_cost_ticks":1.0,"step_vol_ticks":5,"spot_init":1.34}},{"name":"USD/JPY","type":"FX","unit":"USD","pnl":"JPY","note":"JPY quoted to 2 decimals (1 tick = 0.01). Large forward discount: USD yield >> JPY yield. Illustrative.","params":{"rate_a":0.04,"rate_b":0.005,"basis_a":360,"basis_b":360,"tenor_days":45,"tick":0.01,"clip":250000,"spread_ticks":3,"max_skew_ticks":2,"pos_limit":1000000,"loss_limit":360000,"hedge_cost_ticks":1.0,"step_vol_ticks":6,"spot_init":150.0}},{"name":"AUD/USD","type":"FX","unit":"AUD","pnl":"USD","note":"Rates illustrative (AUD 3.60%, USD 4.00%).","params":{"rate_a":0.036,"rate_b":0.04,"basis_a":365,"basis_b":360,"tenor_days":45,"tick":0.0001,"clip":250000,"spread_ticks":3,"max_skew_ticks":2,"pos_limit":1000000,"loss_limit":2400,"hedge_cost_ticks":1.0,"step_vol_ticks":4,"spot_init":0.66}},{"name":"USD/CHF","type":"FX","unit":"USD","pnl":"CHF","note":"Rates illustrative (USD 4.00%, CHF 0.25%): large forward discount.","params":{"rate_a":0.04,"rate_b":0.0025,"basis_a":360,"basis_b":360,"tenor_days":45,"tick":0.0001,"clip":250000,"spread_ticks":3,"max_skew_ticks":2,"pos_limit":1000000,"loss_limit":2400,"hedge_cost_ticks":1.0,"step_vol_ticks":4,"spot_init":0.8}},{"name":"USD/CNH","type":"FX","unit":"USD","pnl":"CNH","note":"Offshore yuan: wider spread / skew than G10. Rates illustrative (USD 4.00%, CNH 1.80%).","params":{"rate_a":0.04,"rate_b":0.018,"basis_a":360,"basis_b":365,"tenor_days":45,"tick":0.0001,"clip":250000,"spread_ticks":8,"max_skew_ticks":4,"pos_limit":1000000,"loss_limit":3000,"hedge_cost_ticks":1.0,"step_vol_ticks":5,"spot_init":7.15}},{"name":"Gold","type":"Commodity","unit":"oz","pnl":"USD","note":"Price USD/oz, 90-day forward. Conv. yield ~ lease rate 0.20%; financing 4.00% + storage 0.10%. Contango. Illustrative.","params":{"rate_a":0.002,"rate_b":0.041,"basis_a":365,"basis_b":365,"tenor_days":90,"tick":0.1,"clip":1000,"spread_ticks":5,"max_skew_ticks":3,"pos_limit":4000,"loss_limit":36000,"hedge_cost_ticks":1.0,"step_vol_ticks":15,"spot_init":4000.0}},{"name":"Silver","type":"Commodity","unit":"oz","pnl":"USD","note":"Price USD/oz, 90-day forward. Conv. yield 0.30%; financing 4.00% + storage 0.30%. Illustrative.","params":{"rate_a":0.003,"rate_b":0.043000000000000003,"basis_a":365,"basis_b":365,"tenor_days":90,"tick":0.01,"clip":50000,"spread_ticks":5,"max_skew_ticks":3,"pos_limit":200000,"loss_limit":120000,"hedge_cost_ticks":1.0,"step_vol_ticks":10,"spot_init":45.0}},{"name":"WTI Crude","type":"Commodity","unit":"bbl","pnl":"USD","note":"Price USD/bbl, 90-day forward. Conv. yield 7.00% > carry 6.00% -> mild BACKWARDATION (forward < spot). Illustrative.","params":{"rate_a":0.07,"rate_b":0.06,"basis_a":365,"basis_b":365,"tenor_days":90,"tick":0.01,"clip":10000,"spread_ticks":4,"max_skew_ticks":3,"pos_limit":40000,"loss_limit":19200,"hedge_cost_ticks":1.0,"step_vol_ticks":8,"spot_init":65.0}},{"name":"Brent Crude","type":"Commodity","unit":"bbl","pnl":"USD","note":"Price USD/bbl (ICE Brent), 90-day forward. Conv. yield 7.00% > carry 6.00% -> mild BACKWARDATION. Illustrative.","params":{"rate_a":0.07,"rate_b":0.06,"basis_a":365,"basis_b":365,"tenor_days":90,"tick":0.01,"clip":10000,"spread_ticks":4,"max_skew_ticks":3,"pos_limit":40000,"loss_limit":19200,"hedge_cost_ticks":1.0,"step_vol_ticks":8,"spot_init":69.0}},{"name":"Copper","type":"Commodity","unit":"t","pnl":"USD","note":"Price USD/tonne, 90-day forward. Conv. yield 2.00%; financing 4.00% + storage 1.00%. Illustrative.","params":{"rate_a":0.02,"rate_b":0.05,"basis_a":365,"basis_b":365,"tenor_days":90,"tick":0.5,"clip":25,"spread_ticks":4,"max_skew_ticks":2,"pos_limit":100,"loss_limit":3000,"hedge_cost_ticks":1.0,"step_vol_ticks":10,"spot_init":10000.0}},{"name":"Natural Gas","type":"Commodity","unit":"MMBtu","pnl":"USD","note":"Price USD/MMBtu, 90-day forward. Very high storage cost (12%) -> steep CONTANGO. Illustrative.","params":{"rate_a":0.0,"rate_b":0.16,"basis_a":365,"basis_b":365,"tenor_days":90,"tick":0.001,"clip":10000,"spread_ticks":5,"max_skew_ticks":3,"pos_limit":40000,"loss_limit":2400,"hedge_cost_ticks":1.0,"step_vol_ticks":10,"spot_init":3.5}},{"name":"Custom (edit me)","type":"FX","unit":"USD","pnl":"MYR","note":"EXAMPLE ROW (USD/MYR, illustrative): overwrite every blue cell with your own instrument.","params":{"rate_a":0.04,"rate_b":0.03,"basis_a":360,"basis_b":365,"tenor_days":45,"tick":0.0001,"clip":250000,"spread_ticks":8,"max_skew_ticks":4,"pos_limit":1000000,"loss_limit":3000,"hedge_cost_ticks":1.0,"step_vol_ticks":5,"spot_init":4.2}}],"globals":{"hedge_target_pct":0.0,"halt_on_loss":1,"start_pos":0},"scenario":{"zs":[1.8,-1.3,-0.4,1.2,0.2,-0.3,-0.7,0.0,1.0,0.4,0.2,0.3,0.2,-1.1,-2.6,-1.0,-1.0,1.2,-1.8,0.5,0.0,0.2,-0.1,-1.3,0.4,0.7,-1.3,-1.5,-1.9,-1.5,-0.8,-0.5,-1.5,-0.3,-0.4,-0.9,-1.5,-1.4,-0.9,-2.5,-1.1,-0.4,0.1,0.3,0.5,-0.2,-0.9,0.5,0.5,-1.7,-0.7,-1.5,-0.2,0.4,-0.5,0.0,0.2,0.2,0.4,-0.5],"actions":["NONE","BUY","NONE","BUY","SELL","NONE","SELL","BUY","SELL","NONE","NONE","NONE","SELL","NONE","SELL","NONE","SELL","NONE","BUY","NONE","SELL","SELL","NONE","SELL","SELL","SELL","SELL","SELL","SELL","NONE","SELL","BUY","NONE","SELL","NONE","SELL","NONE","SELL","BUY","SELL","SELL","NONE","SELL","BUY","SELL","BUY","SELL","BUY","SELL","SELL","BUY","BUY","BUY","BUY","BUY","NONE","BUY","BUY","NONE","SELL"],"seed":277},"default":"USD/SGD"};
+
+(() => {
+  'use strict';
+  const D = DATA, E = Engine;
+  const BUILTIN = JSON.parse(JSON.stringify(D.instruments));
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const MINUS = '−';
+  const nf = (n, d = 2) => new Intl.NumberFormat('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }).format(Math.abs(n));
+  const zero = (n, d) => Math.abs(n) < 0.5 * Math.pow(10, -d);
+  const money = (n, d = 2) => (n < 0 && !zero(n, d) ? MINUS : '') + nf(n, d);
+  const signed = (n, d = 2) => (zero(n, d) ? '' : n < 0 ? MINUS : '+') + nf(n, d);
+  const pct = (x, d = 0) => (x < 0 ? MINUS : '') + nf(x * 100, d) + '%';
+  const compact = (n) => {
+    const a = Math.abs(n), s = n < 0 ? MINUS : '';
+    const t = (v, u) => s + (+v.toFixed(2)).toString() + u;
+    return a >= 1e9 ? t(a / 1e9, 'B') : a >= 1e6 ? t(a / 1e6, 'M') : a >= 1e3 ? t(a / 1e3, 'K') : s + (+a.toFixed(2)).toString();
+  };
+  const decOf = (tick) => (String(tick).split('.')[1] || '').length;
+  const pnlDec = (n) => (Math.abs(n) >= 100000 ? 0 : 2);
+
+  const BADGE = {
+    'USD/SGD': ['S$', '#ffffff', '#111'], 'EUR/USD': ['€', '#3156ff', '#fff'], 'GBP/USD': ['£', '#d6246e', '#fff'],
+    'USD/JPY': ['¥', '#e5372c', '#fff'], 'AUD/USD': ['A$', '#1f9d63', '#fff'], 'USD/CHF': ['Fr', '#ffffff', '#d8101a'],
+    'USD/CNH': ['元', '#c9261f', '#ffd75a'], 'Gold': ['Au', '#f6cf4f', '#2b2100'], 'Silver': ['Ag', '#cfcfcf', '#222'],
+    'WTI Crude': ['Oil', '#2b2b2b', '#f6cf4f'], 'Brent Crude': ['Br', '#17365f', '#ffffff'], 'Copper': ['Cu', '#b8693a', '#fff'], 'Natural Gas': ['Gas', '#2f8bff', '#fff'],
+  };
+  const badge = (name, cls = '') => {
+    const b = Object.prototype.hasOwnProperty.call(BADGE, name) ? BADGE[name] : [String(name).slice(0, 2).toUpperCase(), '#444', '#fff'];
+    return `<span class="badge ${cls}" style="background:${b[1]};color:${b[2]}${b[1] === '#2b2b2b' ? ';box-shadow:inset 0 0 0 1px #444' : ''}">${esc(b[0])}</span>`;
+  };
+
+  const ICON = {
+    search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+    bell: '<path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+    refresh: '<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/>',
+    out: '<path d="M7 17 17 7"/><path d="M8 7h9v9"/>',
+    down: '<path d="m6 9 6 6 6-6"/>',
+    right: '<path d="m9 6 6 6-6 6"/>',
+    filter: '<path d="M4 6h16M7 12h10M10 18h4"/>',
+    chart: '<path d="M5 20V10M12 20V4M19 20v-7"/>',
+    table: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/>',
+    spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/>',
+    up: '<path d="M7 17 17 7"/><path d="M8 7h9v9"/>',
+    dn: '<path d="M17 7 7 17"/><path d="M16 17H7V8"/>',
+    logo: '<path d="M4 6l7 6-7 6"/><path d="M12 6l7 6-7 6"/>',
+    swap: '<path d="M7 20V6M3 10l4-4 4 4"/><path d="M17 4v14M21 14l-4 4-4-4"/>',
+    x: '<path d="M6 6l12 12M18 6 6 18"/>',
+  };
+  const ico = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
+
+  // ------------------------------------------------------------------ state
+  const VIEWS = [['desk', 'Desk'], ['pricing', 'Pricing'], ['instruments', 'Instruments'], ['activity', 'Activity'], ['settings', 'Settings']];
+  const S = {
+    view: 'desk', inst: D.default, over: {}, glob: Object.assign({}, D.globals),
+    zs: D.scenario.zs.slice(), acts: D.scenario.actions.slice(), seed: D.scenario.seed, seedNote: 'Excel scenario',
+    range: 0, metric: 'pnl', pin: null, barMode: 'peak', barTable: false, clips: 2, search: '', pop: null,
+  };
+  let C = null;
+
+  function compute() {
+    const inst = D.instruments.find((i) => i.name === S.inst);
+    const mk = (i) => Object.assign({}, i.params, i.name === S.inst ? S.over : {}, S.glob);
+    const p = mk(inst);
+    const rows = E.simulate(S.zs, S.acts, p);
+    const sum = E.summarize(rows, p);
+    const riskNoSkew = E.riskWithoutSkew(S.zs, S.acts, p);
+    const board = D.instruments.map((i) => {
+      const bp = mk(i);
+      const r = E.simulate(S.zs, S.acts, bp);
+      const fwd = E.fairForward(bp.spot_init, bp);
+      return { inst: i, p: bp, cum: [0].concat(r.map((x) => x.cum)), final: r.length ? r[r.length - 1].cum : 0, fwd, carry: fwd / bp.spot_init - 1, pts: (fwd - bp.spot_init) / bp.tick };
+    });
+    C = { inst, p, rows, sum, riskNoSkew, board, dec: decOf(p.tick) };
+  }
+
+  // ------------------------------------------------------------------ header
+  function header() {
+    const nav = VIEWS.map(([k, l]) => `<button data-act="view" data-v="${k}" ${S.view === k ? 'aria-current="page"' : ''}>${l}</button>`).join('');
+    const events = C.rows.filter((r) => r.trigger);
+    const bell = `<div class="popwrap"><button class="round" data-act="pop" data-id="bell" aria-label="Limit alerts" aria-expanded="${S.pop === 'bell'}">${ico('bell')}${events.length ? '<span class="dot"></span>' : ''}</button>${
+      S.pop === 'bell' ? `<div class="pop"><h4>Limit events</h4>${events.length ? events.slice(0, 8).map((r) => `<button class="evt" data-act="pinstep" data-i="${r.step}"><i style="background:${r.loss_breach ? 'var(--orange)' : 'var(--yellow)'}"></i><span><b>Step ${r.step}: ${r.trigger.toLowerCase()}</b><br><span class="muted">${r.hedge > 0 ? 'Bought' : 'Sold'} ${compact(Math.abs(r.hedge))} ${esc(C.inst.unit)} with the street</span></span></button>`).join('') : '<div class="empty">No limit events in this run.</div>'}</div>` : ''}</div>`;
+    const fx = D.instruments.filter((i) => i.type === 'FX'), cm = D.instruments.filter((i) => i.type !== 'FX');
+    const li = (i) => `<button class="item" data-act="inst" data-name="${esc(i.name)}" ${i.name === S.inst ? 'aria-current="true"' : ''}>${badge(i.name, 'sm')}<span>${esc(i.name)}</span><small>${esc(i.pnl)}</small></button>`;
+    const who = `<div class="popwrap"><button class="who" data-act="pop" data-id="inst" aria-label="Choose instrument" aria-expanded="${S.pop === 'inst'}">${badge(S.inst)}<span style="font-weight:700">${esc(S.inst)}</span>${ico('down')}</button>${
+      S.pop === 'inst' ? `<div class="pop"><h4>FX pairs</h4>${fx.map(li).join('')}<h4>Commodities</h4>${cm.map(li).join('')}</div>` : ''}</div>`;
+    return `<header class="top"><div class="brand">${ico('logo')}Forward Desk</div><nav class="nav" aria-label="Views">${nav}</nav><div class="spacer"></div>
+      <button class="round" data-act="search" aria-label="Search instruments">${ico('search')}</button>
+      <button class="round" data-act="data" aria-label="Import or export data" title="Import / export">${ico('swap')}</button>${bell}${who}</header>`;
+  }
+
+  // ------------------------------------------------------------------ desk
+  function sparkSvg(vals, up) {
+    const w = 64, h = 28, lo = Math.min(...vals), hi = Math.max(...vals), rng = hi - lo || 1;
+    const pts = vals.map((v, i) => [(i / (vals.length - 1)) * w, h - 3 - ((v - lo) / rng) * (h - 6)]);
+    const d = pts.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join('');
+    const c = up ? 'var(--mint)' : 'var(--coral)', e = pts[pts.length - 1];
+    return `<svg class="spark" viewBox="0 0 ${w} ${h}" aria-hidden="true"><path d="${d}" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${e[0]}" cy="${e[1]}" r="3.2" fill="${c}" stroke="#121212" stroke-width="1.5"/></svg>`;
+  }
+
+  function watchlist() {
+    const items = C.board.map((b) => {
+      const dec = decOf(b.p.tick), up = b.final >= 0;
+      return `<button class="wl-item" data-act="inst" data-name="${esc(b.inst.name)}" ${b.inst.name === S.inst ? 'aria-current="true"' : ''}
+        title="Fair forward and its premium/(discount) to spot. Sparkline: simulated cumulative P&amp;L for this scenario.">${badge(b.inst.name, 'lg')}
+        <span><span class="nm">${esc(b.inst.name)}</span><br><span class="px">${nf(b.fwd, dec)}</span><span class="d ${b.carry >= 0 ? 'up' : 'down'}">${b.carry >= 0 ? '+' : MINUS}${nf(Math.abs(b.carry) * 100, 2)}%</span></span>
+        ${sparkSvg(b.cum, up)}</button>`;
+    }).join('');
+    return `<section class="card watch" aria-label="Instrument watchlist"><span class="lab">Watchlist</span><div class="wl" id="wl">${items}</div>
+      <button class="iconbtn" data-act="wlnext" aria-label="Scroll watchlist" style="border-radius:50%;width:40px;height:40px">${ico('right')}</button></section>`;
+  }
+
+  function barsCard() {
+    const s = C.sum, end = C.rows.length ? C.rows[C.rows.length - 1] : null;
+    const peak = S.barMode === 'peak';
+    const data = [
+      ['Position', peak ? s.peakUtil : Math.abs(s.endPos) / C.p.pos_limit, 'var(--orange)', peak ? 'Peak |position| after a client fill, as % of the position limit' : '|Closing position| at the end, as % of the limit'],
+      ['Loss limit', peak ? s.lossUsed : Math.max(0, -(end ? end.cum : 0)) / C.p.loss_limit, 'var(--yellow)', peak ? 'Worst drawdown as % of the loss limit' : 'Final drawdown as % of the loss limit'],
+      ['Skew', peak ? s.maxSkewUsed : end ? Math.abs(end.skew) / (C.p.max_skew_ticks || 1) : 0, '#ffffff', peak ? 'Largest quote skew as % of the max skew' : 'Skew in the last step as % of the max skew'],
+      ['Hit rate', s.hitRate, 'hatch', 'Share of steps that ended in a client fill'],
+    ];
+    const cols = data.map(([lab, v, col, tip]) => {
+      const f = Math.min(1, v) * 100, label = pct(v);
+      const inner = f >= 16 ? `<div class="fill ${col === 'hatch' ? 'hatch' : ''}" style="height:${f}%;${col === 'hatch' ? '' : 'background:' + col}">${label}</div>`
+        : `<div class="fill ${col === 'hatch' ? 'hatch' : ''}" style="height:${Math.max(f, 1.5)}%;${col === 'hatch' ? '' : 'background:' + col};padding:0"></div><div class="above" style="bottom:calc(${Math.max(f, 1.5)}% + 8px)">${label}</div>`;
+      return `<div class="barcol" title="${esc(tip)}"><div class="bar" role="img" aria-label="${esc(lab)} ${label}">${inner}</div><div class="cap">${esc(lab)}</div></div>`;
+    }).join('');
+    const tbl = `<table class="tbl-mini">${data.map(([lab, v, , tip]) => `<tr><td>${esc(lab)}<br><span class="dim" style="font-size:11px">${esc(tip)}</span></td><td>${pct(v)}</td></tr>`).join('')}</table>`;
+    return `<section class="card bars-card" aria-label="Limit usage"><div class="card-head"><h3>Limit usage</h3><span class="sp"></span>
+      <button class="pill" data-act="barmode" aria-label="Switch between peak and end values">${peak ? 'Peak' : 'At end'}${ico('down')}</button>
+      <button class="iconbtn" data-act="bartable" aria-pressed="${S.barTable}" aria-label="${S.barTable ? 'Show bars' : 'Show table'}">${ico(S.barTable ? 'chart' : 'table')}</button></div>
+      ${S.barTable ? tbl : `<div class="bars">${cols}</div>`}</section>`;
+  }
+
+  function gaugeSvg(score) {
+    const cx = 150, cy = 144, r = 118, th = Math.PI * (1 - score / 100);
+    const pt = (t) => [cx + r * Math.cos(t), cy - r * Math.sin(t)];
+    const a = pt(Math.PI), b = pt(th), z = pt(0);
+    const col = score >= 60 ? 'var(--mint)' : score >= 30 ? 'var(--yellow)' : 'var(--orange)';
+    const inner = [cx + (r - 22) * Math.cos(th), cy - (r - 22) * Math.sin(th)], needle = [cx + (r - 70) * Math.cos(th), cy - (r - 70) * Math.sin(th)];
+    return `<svg viewBox="0 0 300 160" role="img" aria-label="Risk score ${score} out of 100"><path d="M${a[0]} ${a[1]} A${r} ${r} 0 0 1 ${z[0]} ${z[1]}" fill="none" stroke="#1f1f1f" stroke-width="30" stroke-linecap="round"/>
+      <path d="M${a[0]} ${a[1]} A${r} ${r} 0 0 1 ${z[0]} ${z[1]}" fill="none" stroke="#2a2a2a" stroke-width="1" stroke-dasharray="2 5"/>
+      ${score > 0 ? `<path d="M${a[0]} ${a[1]} A${r} ${r} 0 0 1 ${b[0]} ${b[1]}" fill="none" stroke="${col}" stroke-width="30" stroke-linecap="round"/>` : ''}
+      <circle cx="${a[0]}" cy="${a[1]}" r="13" fill="#3a3a3a" stroke="#121212" stroke-width="3"/>
+      <line x1="${inner[0]}" y1="${inner[1]}" x2="${needle[0]}" y2="${needle[1]}" stroke="#d8d8d8" stroke-width="1.5" opacity="0.7"/>
+      <circle cx="${b[0]}" cy="${b[1]}" r="12" fill="#fff" stroke="#121212" stroke-width="3"/></svg>`;
+  }
+
+  function riskCard() {
+    const s = C.sum, d = s.risk - C.riskNoSkew;
+    const msg = d > 0 ? `Inventory skew improved the score by +${d}` : d < 0 ? `Inventory skew lowered the score by ${-d}` : 'Inventory skew left the score unchanged';
+    return `<section class="card risk" aria-label="Risk score" style="position:relative"><div class="card-head"><h3>Risk Score</h3><span class="sp"></span>
+      <button class="iconbtn" data-act="view" data-v="activity" aria-label="Open activity log">${ico('out')}</button></div>
+      <div class="score"><b>${s.risk}</b><span>/100</span></div>
+      <div class="gauge">${gaugeSvg(s.risk)}<p title="Half inventory headroom (average |position| vs limit), half loss headroom, minus 4 per position-limit hedge and 10 per loss stop-out. Compared with the same run at zero skew.">${msg} vs. no skew</p></div></section>`;
+  }
+
+  function insightsCard() {
+    const s = C.sum, p = C.p, u = esc(C.inst.unit), c = esc(C.inst.pnl), dec = pnlDec(s.capture);
+    const ev = C.rows.filter((r) => r.trigger);
+    const l1 = `Over <b>${s.n}</b> steps the desk earned <b>${money(s.capture, dec)} ${c}</b> of spread on <b>${s.fills}</b> client fills, against <b>${signed(s.mtm, pnlDec(s.mtm))} ${c}</b> from moves in inventory.`;
+    const l2 = `Inventory peaked at <b>${compact(s.peakAfterClient)} ${u}</b> (<b>${pct(s.peakUtil)}</b> of limit); skew moved quotes by up to <b>${nf(s.maxSkewUsed * p.max_skew_ticks, 1)}</b> ticks.`;
+    const l3 = s.lossStep ? `The loss limit was hit at <b>step ${s.lossStep}</b>${s.halted ? `, flattening the book and halting quoting for <b>${s.n - s.lossStep}</b> steps` : ''}${s.posHedges ? `, after <b>${s.posHedges}</b> position-limit hedge${s.posHedges > 1 ? 's' : ''}` : ''}.`
+      : s.posHedges ? `<b>${s.posHedges}</b> position-limit hedge${s.posHedges > 1 ? 's' : ''} traded <b>${compact(s.hedgeVolume)} ${u}</b> with the street; the loss limit held.` : 'No position or loss limit was breached.';
+    const chips = ev.slice(0, 5).map((r) => `<button class="evchip ${r.loss_breach ? 'loss' : 'pos'}" data-act="pinstep" data-i="${r.step}" title="Step ${r.step}: ${r.trigger.toLowerCase()}" aria-label="Step ${r.step}: ${r.trigger.toLowerCase()}">${r.step}</button>`).join('')
+      + (ev.length > 5 ? `<span class="evchip more">+${ev.length - 5}</span>` : '');
+    return `<section class="card insight" aria-label="Desk insights"><div class="card-head"><span class="ttl">${ico('spark')}Desk Insights</span><span class="sp"></span>
+      <button class="iconbtn" data-act="view" data-v="activity" aria-label="Open activity log" style="background:#1d1d1c">${ico('out')}</button></div>
+      <div class="body"><p>${l1}</p><p>${l2}</p><p>${l3}</p></div>
+      ${ev.length ? `<div class="chips" aria-label="Limit events by step">${chips}</div>` : '<div class="chips"><span class="dim" style="padding:0 8px">No limit events</span></div>'}</section>`;
+  }
+
+  function filtersPop() {
+    const f = (k, lab, step) => `<div class="field"><label for="q-${k}">${lab}</label><input id="q-${k}" type="number" step="${step}" data-field="${k}" value="${+C.p[k].toPrecision(10)}"></div>`;
+    return `<div class="pop" style="right:0;min-width:280px;padding:14px"><div class="grid2" style="grid-template-columns:1fr 1fr;gap:10px">
+      ${f('spread_ticks', 'Spread (ticks)', 0.5)}${f('max_skew_ticks', 'Max skew (ticks)', 0.5)}${f('pos_limit', `Position limit (${esc(C.inst.unit)})`, 1)}${f('loss_limit', `Loss limit (${esc(C.inst.pnl)})`, 1)}</div>
+      <label class="toggle" style="margin:12px 0 4px"><input type="checkbox" data-glob="halt_on_loss" ${S.glob.halt_on_loss === 1 ? 'checked' : ''}>Halt quoting after a loss stop-out</label>
+      <div style="margin-top:8px"><button class="btn" data-act="view" data-v="settings" style="width:100%">All settings</button></div></div>`;
+  }
+
+  function viewDesk() {
+    const s = C.sum, p = C.p, c = esc(C.inst.pnl), dec = pnlDec(s.cum);
+    const notional = p.pos_limit * p.spot_init, ret = s.cum / notional;
+    const ticks = Array.from({ length: 22 }, (_, i) => `<i class="${i < Math.round((s.health / 100) * 22) ? 'on' : ''}"></i>`).join('');
+    const tile = (col, lab, val, sub) => `<div class="tile kpi"><div class="lab"><i style="background:${col}"></i>${lab}</div><div class="val num">${val}</div><div class="sub">${sub}</div></div>`;
+    return `<section class="card" aria-label="Desk performance">
+      <div class="card-head perf-head"><h2>Desk Performance</h2><span class="health" title="Share of steps the desk was quoting live. A loss-limit stop-out halts quoting.">
+        <span class="ticks" aria-hidden="true">${ticks}</span><b>${s.health}</b></span><span class="muted">Health Score</span><span class="sp"></span>
+        <div class="popwrap"><button class="pill" data-act="pop" data-id="filters" aria-expanded="${S.pop === 'filters'}">Filters${ico('down')}</button>${S.pop === 'filters' ? filtersPop() : ''}</div>
+        <button class="iconbtn" data-act="reshuffle" aria-label="New random scenario" title="New random scenario">${ico('refresh')}</button>
+        <button class="iconbtn" data-act="view" data-v="activity" aria-label="Open activity log">${ico('out')}</button></div>
+      <div class="perf"><div class="left"><div><div class="eyebrow">Total P&amp;L</div>
+        <div class="big num"><span>${money(s.cum, dec)}<span class="ccy" style="margin:0 0 0 8px;vertical-align:baseline;font-size:.4em">${c}</span></span>
+        <span class="chip ${s.cum >= 0 ? 'up' : 'down'}" title="P&amp;L as a share of the position-limit notional">${ico(s.cum >= 0 ? 'up' : 'dn')}${nf(Math.abs(ret) * 100, 2)}%</span></div></div>
+        <div class="kpis">${tile('var(--mint)', 'Spread capture', money(s.capture, pnlDec(s.capture)), `${s.fills} fills`)}
+        ${tile('var(--orange)', 'Inventory MTM', money(s.mtm, pnlDec(s.mtm)), 'Moves vs. position')}
+        ${tile('var(--orange)', 'Hedge cost', money(s.hedgeCost, pnlDec(s.hedgeCost)), `${compact(s.hedgeVolume)} ${esc(C.inst.unit)} hedged`)}
+        ${tile('#fff', 'Client volume', compact(s.volume), `${s.buys} buys · ${s.sells} sells`)}</div></div>
+        <div class="hero" aria-label="Cumulative profit and loss chart"><div class="hero-top"><span class="t" id="hero-title"></span>
+          <span class="seg" role="group" aria-label="Chart series"><button data-act="metric" data-m="pnl" aria-pressed="${S.metric === 'pnl'}">P&amp;L</button><button data-act="metric" data-m="pos" aria-pressed="${S.metric === 'pos'}">Position</button></span>
+          <span class="ranges" role="group" aria-label="Range">${[[20, '20'], [40, '40'], [0, 'All']].map(([v, l]) => `<button data-act="range" data-r="${v}" aria-pressed="${S.range === v}">${l}</button>`).join('')}</span></div>
+          <div class="hero-val"><span class="big num" id="hero-val"></span><span class="chip light" id="hero-chip"></span></div>
+          <div class="plot" id="plot"></div></div></div></section>
+      ${watchlist()}
+      <div class="bottom">${barsCard()}${riskCard()}${insightsCard()}</div>`;
+  }
+
+  // ------------------------------------------------------------------ hero chart
+  function niceTicks(lo, hi, count) {
+    const rng = hi - lo || 1, raw = rng / count, mag = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / mag;
+    const step = (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag;
+    const out = [];
+    for (let v = Math.floor(lo / step) * step; v <= Math.ceil(hi / step) * step + step / 1e6; v += step) out.push(+v.toFixed(10));
+    return out;
+  }
+  let drawn = null;
+  function heroVals() {
+    const first = S.metric === 'pnl' ? 0 : C.p.start_pos;
+    return [first].concat(C.rows.map((r) => (S.metric === 'pnl' ? r.cum : r.pos_close)));
+  }
+  function drawHero() {
+    const el = $('#plot');
+    if (!el) return;
+    const vals = heroVals(), n = vals.length, last = n - 1, start = S.range ? Math.max(0, last - S.range) : 0;
+    const unit = S.metric === 'pnl' ? C.inst.pnl : C.inst.unit;
+    const pnl = S.metric === 'pnl';
+    $('#hero-title').textContent = pnl ? `Cumulative P&L (${unit})` : `Closing position (${unit})`;
+    const cur = vals[last], from = vals[start], dlt = cur - from;
+    $('#hero-val').innerHTML = pnl ? `${money(cur, pnlDec(cur))}<span class="ccy" style="margin:0 0 0 8px;vertical-align:baseline;font-size:.4em">${esc(unit)}</span>` : `${compact(cur)}<span class="ccy" style="margin:0 0 0 8px;vertical-align:baseline;font-size:.4em">${esc(unit)}</span>`;
+    $('#hero-chip').innerHTML = `${ico(dlt >= 0 ? 'up' : 'dn')}${pnl ? signed(dlt, pnlDec(dlt)) : (dlt < 0 ? MINUS : '+') + compact(Math.abs(dlt))}`;
+    const W = Math.max(260, el.clientWidth), H = Math.max(200, el.clientHeight), m = { l: 52, r: 14, t: 14, b: 26 };
+    const seg = vals.slice(start);
+    const ticks = niceTicks(Math.min(0, ...seg), Math.max(0, ...seg), 4), y0 = ticks[0], y1 = ticks[ticks.length - 1];
+    const X = (i) => m.l + ((i - start) / Math.max(1, last - start)) * (W - m.l - m.r);
+    const Y = (v) => m.t + (1 - (v - y0) / (y1 - y0 || 1)) * (H - m.t - m.b);
+    const pts = []; for (let i = start; i <= last; i++) pts.push([X(i), Y(vals[i])]);
+    const line = pts.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join('');
+    const area = line + `L${pts[pts.length - 1][0].toFixed(1)} ${H - m.b}L${pts[0][0].toFixed(1)} ${H - m.b}Z`;
+    const grid = ticks.map((t) => `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}" stroke="rgba(255,255,255,${t === 0 ? 0.34 : 0.16})" stroke-width="1"/><text x="${m.l - 8}" y="${(Y(t) + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="rgba(255,255,255,0.82)">${pnl ? (t < 0 ? MINUS : '') + compact(Math.abs(t)) : compact(t)}</text>`).join('');
+    const every = Math.max(1, Math.ceil((last - start) / 8 / 5) * 5);
+    let xl = ''; for (let i = start; i <= last; i++) if ((i % every === 0) || i === last) xl += `<text x="${X(i).toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.82)">${i}</text>`;
+    let bands = '', dots = '';
+    for (let i = Math.max(1, start); i <= last; i++) {
+      const r = C.rows[i - 1]; if (!r.trigger) continue;
+      bands += `<rect x="${(X(i) - 9).toFixed(1)}" y="${m.t}" width="18" height="${H - m.t - m.b}" fill="url(#band)"/>`;
+      dots += `<circle cx="${X(i).toFixed(1)}" cy="${Y(vals[i]).toFixed(1)}" r="5" fill="#fff" stroke="#df4a24" stroke-width="2"/>`;
+    }
+    const e = pts[pts.length - 1];
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" tabindex="0" aria-label="${pnl ? 'Cumulative P&L' : 'Closing position'} by step. Use left and right arrow keys to inspect steps.">
+      <defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.34"/><stop offset="1" stop-color="#fff" stop-opacity="0.02"/></linearGradient>
+      <linearGradient id="band" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.26"/><stop offset="1" stop-color="#fff" stop-opacity="0.04"/></linearGradient>
+      <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(135)"><line x1="0" y1="0" x2="0" y2="6" stroke="#fff" stroke-opacity="0.2" stroke-width="1"/></pattern></defs>
+      ${grid}${xl}${bands}<path d="${area}" fill="url(#ag)"/><path d="${area}" fill="url(#hatch)"/>
+      <path d="${line}" fill="none" stroke="#ffe08a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>${dots}
+      <circle cx="${e[0].toFixed(1)}" cy="${e[1].toFixed(1)}" r="4.5" fill="#ffe08a" stroke="#df4a24" stroke-width="2"/>
+      <line id="xh" y1="${m.t}" y2="${H - m.b}" stroke="#fff" stroke-opacity="0.55" stroke-width="1" visibility="hidden"/><circle id="xd" r="5" fill="#fff" stroke="#df4a24" stroke-width="2" visibility="hidden"/>
+      <rect class="hit" x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H - m.b}" fill="transparent"/></svg><div class="tip" id="tip" hidden></div>`;
+    drawn = { vals, start, last, X, Y, m, W, H, pnl };
+    const svg = el.firstElementChild;
+    const idxAt = (ev) => {
+      const r = svg.getBoundingClientRect(), x = ((ev.clientX - r.left) / r.width) * W;
+      return Math.max(start, Math.min(last, Math.round(start + ((x - m.l) / (W - m.l - m.r)) * (last - start))));
+    };
+    svg.addEventListener('pointermove', (ev) => showAt(idxAt(ev)));
+    svg.addEventListener('pointerleave', () => showAt(S.pin));
+    svg.addEventListener('click', (ev) => { const i = idxAt(ev); S.pin = S.pin === i ? null : i; showAt(S.pin == null ? i : S.pin); });
+    svg.addEventListener('keydown', (ev) => {
+      if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return;
+      ev.preventDefault();
+      const cur = S.pin == null ? last : S.pin;
+      S.pin = Math.max(start, Math.min(last, cur + (ev.key === 'ArrowLeft' ? -1 : 1)));
+      showAt(S.pin);
+    });
+    showAt(S.pin != null && S.pin >= start && S.pin <= last ? S.pin : null);
+  }
+  function showAt(i) {
+    const tip = $('#tip'), svg = $('#plot svg');
+    if (!tip || !drawn) return;
+    const xh = $('#xh'), xd = $('#xd');
+    if (i == null) { tip.hidden = true; xh.setAttribute('visibility', 'hidden'); xd.setAttribute('visibility', 'hidden'); return; }
+    const { vals, X, Y, pnl, W, H, m } = drawn, x = X(i), y = Y(vals[i]);
+    xh.setAttribute('x1', x); xh.setAttribute('x2', x); xh.setAttribute('visibility', 'visible');
+    xd.setAttribute('cx', x); xd.setAttribute('cy', y); xd.setAttribute('visibility', 'visible');
+    const f = (v) => (pnl ? money(v, pnlDec(v)) : compact(v));
+    const r = i > 0 ? C.rows[i - 1] : null, d = vals[i] - (i > 0 ? vals[i - 1] : vals[i]);
+    const lab = (k) => (k === 0 ? 'Open' : 'Step ' + k);
+    let h = `<div class="r"><span>${lab(Math.max(0, i - 1))}</span><b>${f(vals[Math.max(0, i - 1)])}</b></div>`;
+    if (i > 0) h += `<div class="mid">${pnl ? signed(d, pnlDec(d)) : (d < 0 ? MINUS : '+') + compact(Math.abs(d))}</div><div class="r"><span>${lab(i)}</span><b>${f(vals[i])}</b></div>`;
+    if (r) {
+      const dec = C.dec;
+      h += `<div class="sub">${r.live ? (r.act === 'NONE' ? 'No client trade' : 'Client ' + r.act) : 'Quoting halted'} · pos ${compact(r.pos_close)} ${esc(C.inst.unit)}<br>Bid ${nf(r.bid, dec)} / Ask ${nf(r.ask, dec)} · skew ${signed(r.skew, 2)}</div>`;
+      if (r.trigger) h += `<div class="ev ${r.loss_breach ? 'loss' : ''}">${r.trigger}: ${r.hedge > 0 ? 'bought' : 'sold'} ${compact(Math.abs(r.hedge))} ${esc(C.inst.unit)}</div>`;
+    }
+    tip.innerHTML = h; tip.hidden = false;
+    const el = $('#plot'), sx = (x / W) * el.clientWidth, w = tip.offsetWidth;
+    tip.style.left = Math.max(4, Math.min(el.clientWidth - w - 4, sx + 14 > el.clientWidth - w ? sx - w - 14 : sx + 14)) + 'px';
+    tip.style.top = Math.max(0, Math.min(el.clientHeight - tip.offsetHeight - 30, (y / H) * el.clientHeight - tip.offsetHeight / 2)) + 'px';
+  }
+
+  // ------------------------------------------------------------------ pricing
+  function viewPricing() {
+    const p = C.p, d = p.tenor_days, fa = 1 + p.rate_a * d / p.basis_a, fb = 1 + p.rate_b * d / p.basis_b, F = p.spot_init * fb / fa;
+    const dec = C.dec, fx = C.inst.type === 'FX', pts = (F - p.spot_init) / p.tick, prem = (F / p.spot_init - 1) * 365 / d;
+    const q = E.quote(F, S.clips * p.clip, p), pos = S.clips * p.clip, u = esc(C.inst.unit);
+    const lad = []; for (let k = -6; k <= 6; k++) { const ps = k * p.clip, qq = E.quote(F, ps, p), ut = ps / p.pos_limit; lad.push({ ps, qq, ut }); }
+    const hedgeNext = Math.abs(pos - p.clip) > p.pos_limit || Math.abs(pos + p.clip) > p.pos_limit;
+    return `<div class="page-head"><div><h2>Pricing: ${esc(S.inst)}</h2><p>${fx ? 'Covered interest parity' : 'Cost of carry'}, then a two-way quote skewed for inventory.</p></div></div>
+      <div class="cols" style="grid-template-columns:minmax(300px,0.9fr) minmax(300px,1.1fr)"><section class="card"><h3>Fair forward</h3>
+        <table class="recipe"><tr><td>Spot (${esc(C.inst.pnl)} per ${u})</td><td>${nf(p.spot_init, dec + 1)}</td></tr>
+        <tr><td>${fx ? 'Base-currency factor' : 'Convenience-yield factor'}<br><span class="dim">1 + ${nf(p.rate_a * 100, 2)}% × ${d} / ${p.basis_a}</span></td><td>${fa.toFixed(6)}</td></tr>
+        <tr><td>${fx ? 'Quote-currency factor' : 'Carry factor (financing + storage)'}<br><span class="dim">1 + ${nf(p.rate_b * 100, 2)}% × ${d} / ${p.basis_b}</span></td><td>${fb.toFixed(6)}</td></tr>
+        <tr class="total"><td>Fair forward = spot × B ÷ A</td><td>${nf(F, dec + 1)}</td></tr></table>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><span class="chip ${pts >= 0 ? 'up' : 'down'}">${signed(pts, 1)} ticks</span><span class="chip light">${signed(prem * 100, 2)}% p.a.</span></div>
+        <p class="muted" style="margin:12px 0 0">${F < p.spot_init ? `Forward at a <b>discount</b> to spot${fx ? ': the base currency yields more than the quote currency.' : ' (backwardation): convenience yield exceeds carry.'}` : `Forward at a <b>premium</b> to spot${fx ? ': the quote currency yields more than the base currency.' : ' (contango): carry exceeds convenience yield.'}`}</p></section>
+      <section class="hero" style="padding:18px"><div class="hero-top"><span class="t">Live quote</span><span class="stepper" style="margin-left:auto"><button data-act="clip" data-d="-1" aria-label="One clip shorter">${MINUS}</button><b id="clipval">${S.clips > 0 ? '+' : S.clips < 0 ? MINUS : ''}${Math.abs(S.clips)} clips</b><button data-act="clip" data-d="1" aria-label="One clip longer">+</button></span></div>
+        <div class="eyebrow" style="color:rgba(255,255,255,.85);margin-top:10px">Position ${compact(pos)} ${u} · ${pct(pos / p.pos_limit)} of limit · skew ${signed(q.skew, 2)} ticks</div>
+        <div class="quote2"><div class="qbox"><div class="eyebrow">Bid · client sells to us</div><div class="big num">${nf(q.bid, dec)}</div></div><div class="qbox"><div class="eyebrow">Ask · client buys from us</div><div class="big num">${nf(q.ask, dec)}</div></div></div>
+        <p style="margin:14px 0 0;font-weight:600">${hedgeNext ? 'A fill can breach the limit and trigger a hedge.' : 'Next fill stays inside the limit.'}</p>
+        <p style="margin:2px 0 0;opacity:.85">Quote size ${compact(p.clip)} ${u} each side · spread ${nf(p.spread_ticks, 1)} ticks · fair forward ${nf(F, dec + 1)}</p></section></div>
+      <section class="card"><h3>Skew ladder</h3><p class="muted" style="margin:4px 0 12px">Quotes at every inventory level. Rows past the limit trigger a hedge.</p>
+        <div class="scroll"><table class="t"><thead><tr><th>Position (${u})</th><th>Utilisation</th><th></th><th>Skew (ticks)</th><th>Bid</th><th>Ask</th><th>Limit</th></tr></thead><tbody>${lad.map((l) => {
+          const b = Math.abs(l.ps) > p.pos_limit, w = Math.min(50, Math.abs(l.ut) * 33);
+          return `<tr class="${b ? 'hedge' : ''}"><td>${money(l.ps, 0)}</td><td>${pct(l.ut)}</td><td><span class="ubar"><i style="${l.ut >= 0 ? 'left:50%' : 'right:50%'};width:${w}%"></i></span></td><td>${signed(l.qq.skew, 2) || '0.00'}</td><td>${nf(l.qq.bid, dec)}</td><td>${nf(l.qq.ask, dec)}</td><td>${b ? 'Breach: hedge' : 'Within limit'}</td></tr>`; }).join('')}</tbody></table></div></section>`;
+  }
+
+  // ------------------------------------------------------------------ instruments
+  function viewInstruments() {
+    const q = S.search.trim().toLowerCase();
+    const rows = C.board.filter((b) => !q || (b.inst.name + ' ' + b.inst.type).toLowerCase().includes(q));
+    return `<div class="page-head"><div><h2>Instruments</h2><p>${D.instruments.filter((i) => i.type === 'FX').length} FX pairs and ${D.instruments.filter((i) => i.type !== 'FX').length} commodities. Pick a row to load it on the Desk. Levels are illustrative, not live data.</p></div><span style="flex:1"></span>
+      <button class="btn" data-act="data" data-tab="import" data-what="library">Import</button><button class="btn" data-act="data" data-tab="export" data-what="library">Export</button>
+      <input class="search" id="search" type="search" placeholder="Search instruments" value="${esc(S.search)}" aria-label="Search instruments"></div>
+      <div class="scroll"><table class="t"><thead><tr><th>Instrument</th><th>Type</th><th>Spot</th><th>Fair forward</th><th>Fwd pts (ticks)</th><th>Prem/(disc) p.a.</th><th>Rate A</th><th>Rate B</th><th>Tenor</th><th>Spread</th><th>Quote size</th><th>Position limit</th><th>Sim. P&amp;L</th></tr></thead><tbody>${
+        rows.map((b) => { const p = b.p, dec = decOf(p.tick), prem = b.carry * 365 / p.tenor_days;
+          return `<tr class="clickable ${b.inst.name === S.inst ? 'sel' : ''}" data-act="inst" data-name="${esc(b.inst.name)}" data-go="desk" tabindex="0"><td><span class="cell">${badge(b.inst.name, 'sm')}<b>${esc(b.inst.name)}</b></span></td><td>${esc(b.inst.type)}</td><td>${nf(p.spot_init, dec)}</td><td>${nf(b.fwd, dec + 1)}</td>
+          <td class="${b.pts < 0 ? 'neg' : 'pos'}">${signed(b.pts, 1)}</td><td class="${prem < 0 ? 'neg' : 'pos'}">${signed(prem * 100, 2)}%</td><td>${nf(p.rate_a * 100, 2)}%</td><td>${nf(p.rate_b * 100, 2)}%</td><td>${p.tenor_days}d</td><td>${nf(p.spread_ticks, 1)}</td><td>${compact(p.clip)} ${esc(b.inst.unit)}</td><td>${compact(p.pos_limit)}</td>
+          <td class="${b.final < 0 ? 'neg' : 'pos'}">${money(b.final, pnlDec(b.final))} ${esc(b.inst.pnl)}</td></tr>`; }).join('') || '<tr><td colspan="13" class="muted" style="text-align:center;padding:24px">No instruments match.</td></tr>'}</tbody></table></div>`;
+  }
+
+  // ------------------------------------------------------------------ activity
+  function viewActivity() {
+    const dec = C.dec, u = esc(C.inst.unit);
+    const body = C.rows.map((r, i) => `<tr class="${r.loss_breach ? 'loss' : r.pos_breach ? 'hedge' : !r.live ? 'halt' : ''}"><td>${r.step}</td>
+      <td><input class="cell-in" type="number" step="0.1" value="${S.zs[i]}" data-z="${i}" aria-label="Market move, step ${r.step}"></td>
+      <td><button class="actbtn ${S.acts[i]}" data-act="cycle" data-i="${i}" aria-label="Client action, step ${r.step}: ${S.acts[i]}">${S.acts[i]}</button></td>
+      <td>${nf(r.spot, dec + 1)}</td><td>${nf(r.fwd, dec + 1)}</td><td>${money(r.pos_open, 0)}</td><td>${signed(r.skew, 2) || '0.00'}</td><td>${nf(r.bid, dec)}</td><td>${nf(r.ask, dec)}</td><td>${money(r.fill, 0)}</td>
+      <td>${money(r.edge)}</td><td>${money(r.mtm)}</td><td>${r.trigger ? `<b>${r.trigger === 'LOSS LIMIT' ? 'LOSS' : 'POS'}</b> ${money(r.hedge, 0)}` : '-'}</td><td>${money(r.pos_close, 0)}</td><td class="${r.cum < 0 ? 'neg' : 'pos'}">${money(r.cum)}</td><td>${r.live ? 'LIVE' : 'HALTED'}</td></tr>`).join('');
+    return `<div class="page-head"><div><h2>Activity: ${esc(S.inst)}</h2><p>Every step of the run. Edit a market move (sigma units) or click an action to cycle BUY, SELL, NONE; everything recalculates.</p></div><span style="flex:1"></span>
+      <button class="btn" data-act="reshuffle">New random scenario</button><button class="btn" data-act="excel">Load Excel scenario</button><button class="btn" data-act="data" data-tab="import" data-what="scenario">Import</button><button class="btn" data-act="data" data-tab="export" data-what="run">Export</button></div>
+      <div class="scroll"><table class="t mono"><thead><tr><th>Step</th><th>Move (sigma)</th><th>Client</th><th>Spot</th><th>Fair fwd</th><th>Open pos (${u})</th><th>Skew</th><th>Bid</th><th>Ask</th><th>Fill (${u})</th><th>Spread cap.</th><th>MTM</th><th>Hedge</th><th>Close pos</th><th>Cum. P&amp;L ${esc(C.inst.pnl)}</th><th>Status</th></tr></thead><tbody>${body}</tbody></table></div>
+      <p class="muted" style="margin:10px 4px 0"><span style="color:var(--yellow)">Yellow</span> rows hit the position limit, <span style="color:var(--coral)">orange</span> rows hit the loss limit, grey rows are halted.</p>`;
+  }
+
+  // ------------------------------------------------------------------ settings
+  function viewSettings() {
+    const base = C.inst.params, fx = C.inst.type === 'FX', u = esc(C.inst.unit), c = esc(C.inst.pnl);
+    const F = (k, lab, o = {}) => {
+      const sc = o.pct ? 100 : 1, ov = S.over[k] !== undefined, v = ov ? +(S.over[k] * sc).toPrecision(10) : '';
+      return `<div class="field"><label for="f-${k}">${lab}</label><input id="f-${k}" type="number" step="${o.step || 'any'}" data-field="${k}" ${o.pct ? 'data-pct="1"' : ''} class="${ov ? 'ov' : ''}" value="${v}" placeholder="${+(base[k] * sc).toPrecision(10)}"><small>${ov ? 'Overridden' : 'Default'}: ${+(base[k] * sc).toPrecision(10)}${o.unit || ''}</small></div>`;
+    };
+    const opts = D.instruments.map((i) => `<option ${i.name === S.inst ? 'selected' : ''}>${esc(i.name)}</option>`).join('');
+    return `<div class="page-head"><div><h2>Settings</h2><p>Leave a field blank to use the ${esc(S.inst)} default. Changes apply when you leave the field.</p></div><span style="flex:1"></span><button class="btn" data-act="data" data-tab="import" data-what="session">Import / Export</button><button class="btn" data-act="resetover">Reset to defaults</button></div>
+      <div class="cols"><section class="card"><h3>Scenario</h3><div class="grid2" style="margin-top:12px"><div class="field"><label for="f-inst">Instrument</label><select id="f-inst" data-inst>${opts}</select></div>
+        <div class="field"><label for="f-steps">Steps</label><input id="f-steps" type="number" min="10" max="500" step="1" value="${S.zs.length}" data-steps><small>10 to 500 client RFQs</small></div></div>
+        <p class="muted" style="margin:14px 0 8px">Scenario: <b style="color:var(--ink)">${esc(S.seedNote)}</b>${S.seed == null || S.seedNote.startsWith('Excel') ? '' : ' #' + S.seed}</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn orange" data-act="reshuffle">New random scenario</button><button class="btn" data-act="excel">Load Excel scenario</button></div></section>
+      <section class="card"><h3>Pricing inputs</h3><div class="grid2" style="margin-top:12px">${F('spot_init', `Spot (${c} per ${u})`)}${F('rate_a', fx ? 'Base-currency rate (%)' : 'Convenience yield (%)', { pct: 1, step: '0.01' })}${F('rate_b', fx ? 'Quote-currency rate (%)' : 'Financing + storage (%)', { pct: 1, step: '0.01' })}${F('tenor_days', 'Tenor (days)', { step: 1 })}${F('basis_a', 'Day basis A', { step: 1 })}${F('basis_b', 'Day basis B', { step: 1 })}</div></section>
+      <section class="card"><h3>Quoting</h3><div class="grid2" style="margin-top:12px">${F('tick', 'Tick size')}${F('clip', `Quote size (${u})`, { step: 1 })}${F('spread_ticks', 'Spread (ticks)', { step: 0.5 })}${F('max_skew_ticks', 'Max skew (ticks)', { step: 0.5 })}${F('step_vol_ticks', 'Step volatility (ticks per 1σ)', { step: 0.5 })}</div></section>
+      <section class="card"><h3>Risk and hedging</h3><div class="grid2" style="margin-top:12px">${F('pos_limit', `Position limit (${u})`, { step: 1 })}${F('loss_limit', `Loss limit (${c})`, { step: 1 })}${F('hedge_cost_ticks', 'Street half-spread paid on hedges (ticks)', { step: 0.5 })}
+        <div class="field"><label for="g-hp">Residual after limit hedge (% of limit)</label><input id="g-hp" type="number" step="5" min="0" max="100" data-gpct="hedge_target_pct" value="${S.glob.hedge_target_pct * 100}"></div>
+        <div class="field"><label for="g-sp">Opening position (${u})</label><input id="g-sp" type="number" step="1" data-gnum="start_pos" value="${S.glob.start_pos}"></div>
+        <div class="field"><label>Loss-limit stop-out</label><label class="toggle"><input type="checkbox" data-glob="halt_on_loss" ${S.glob.halt_on_loss === 1 ? 'checked' : ''}>Halt quoting after a breach</label></div></div></section></div>`;
+  }
+
+  // ------------------------------------------------------------------ data dialog (import / export)
+  const DL = { open: false, tab: 'export', what: 'run', fmt: 'csv', text: '', parsed: null, bundle: null };
+  let toastTimer = null;
+  function toast(msg) { const el = $('#toast'); el.textContent = msg; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 5000); }
+  const slug = (x) => String(x).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'data';
+  const WHATS = [
+    ['run', 'Run results', 'Every step: quotes, fills, P&L and hedges (CSV or JSON)'],
+    ['scenario', 'Scenario only', 'Market moves and client actions. The CSV pastes into the Excel Simulation sheet'],
+    ['session', 'Full session', 'Instrument, overrides, settings, scenario and results (JSON)'],
+    ['library', 'Instrument library', 'All instruments, including any you imported (CSV or JSON)'],
+  ];
+  const EXAMPLES = {
+    scenario: 'step,move_sigma,action\n1,1.5,NONE\n2,-1.2,BUY\n3,0.4,SELL\n4,-0.8,SELL\n5,2.1,BUY\n',
+    library: IO.exportLibraryCSV([{ name: 'Example Corn', type: 'Commodity', unit: 'bu', pnl: 'USD', note: 'Example row with illustrative values',
+      params: { spot_init: 4.5, rate_a: 0.02, rate_b: 0.06, basis_a: 365, basis_b: 365, tenor_days: 90, tick: 0.0025, clip: 5000, spread_ticks: 4, max_skew_ticks: 3, pos_limit: 20000, loss_limit: 2400, hedge_cost_ticks: 1, step_vol_ticks: 8 } }]),
+  };
+  const CHEAT = `Scenario (CSV)      step,move_sigma,action        move = market move in 1-sigma units (-10..10)
+                    1,1.5,NONE                   action = BUY, SELL or NONE
+                    Columns A:C of the Excel Simulation sheet paste straight in.
+Scenario (JSON)     {"moves":[1.5,-1.2],"actions":["NONE","BUY"]}
+Instruments (CSV)   name,type,unit,pnl,spot,rate_a,rate_b,basis_a,basis_b,tenor_days,tick,clip,
+                    spread_ticks,max_skew_ticks,pos_limit,loss_limit,hedge_cost_ticks,step_vol_ticks,note
+                    type = FX or Commodity. Rates as fractions (0.04) or percents (4%).
+                    An Excel Instruments sheet saved as CSV also imports.
+Instruments (JSON)  {"instruments":[{"name":"...","type":"FX", ...}]}
+Session (JSON)      The "Full session" export. Restores instrument, overrides, settings and scenario.`;
+
+  function exportBundle() {
+    const what = DL.what, fmt = what === 'session' ? 'json' : DL.fmt, sc = { seed: S.seed, note: S.seedNote, zs: S.zs, acts: S.acts };
+    let text;
+    if (what === 'run') text = fmt === 'csv' ? IO.exportRunCSV(C.rows) : IO.exportRunJSON({ instrument: S.inst, unit: C.inst.unit, pnl: C.inst.pnl, params: C.p, globals: S.glob, summary: C.sum }, C.rows);
+    else if (what === 'scenario') text = fmt === 'csv' ? IO.exportScenarioCSV(S.zs, S.acts) : IO.exportScenarioJSON(sc);
+    else if (what === 'library') text = fmt === 'csv' ? IO.exportLibraryCSV(D.instruments) : IO.exportLibraryJSON(D.instruments);
+    else text = IO.exportSessionJSON({ instrument: S.inst, definition: C.inst, overrides: S.over, globals: S.glob, scenario: sc, summary: C.sum, rows: C.rows });
+    return { text, fmt, name: (what === 'library' ? 'forward-desk_library' : `forward-desk_${slug(S.inst)}_${what}`) + '.' + fmt, mime: fmt === 'csv' ? 'text/csv' : 'application/json' };
+  }
+  function renderDialog() {
+    const el = $('#dlg');
+    document.documentElement.style.overflow = DL.open ? 'hidden' : '';
+    if (!DL.open) { el.innerHTML = ''; return; }
+    const exp = DL.tab === 'export';
+    let body;
+    if (exp) {
+      const b = (DL.bundle = exportBundle());
+      body = `<div class="opts" role="radiogroup" aria-label="What to export">${WHATS.map(([k, l, d]) => `<button class="opt" role="radio" aria-checked="${DL.what === k}" data-act="dlgwhat" data-k="${k}"><b>${l}</b><span>${d}</span></button>`).join('')}</div>
+        <div class="fmtrow"><span class="muted">Format</span><span class="tabs" role="group" aria-label="Format"><button data-act="dlgfmt" data-k="csv" aria-pressed="${b.fmt === 'csv'}" ${DL.what === 'session' ? 'disabled' : ''}>CSV</button><button data-act="dlgfmt" data-k="json" aria-pressed="${b.fmt === 'json'}">JSON</button></span><span class="dim" id="exp-meta"></span></div>
+        <textarea id="exp-text" class="mono-area" readonly spellcheck="false" aria-label="Export text"></textarea>
+        <div class="dlg-actions"><button class="btn primary" data-act="dlgdl">Download ${esc(b.name)}</button><button class="btn" data-act="dlgcopy">Copy to clipboard</button></div>
+        <p class="dim" style="margin:0">Downloads can be blocked when this page is embedded or sandboxed. Copy always works: paste into a .${b.fmt} file.</p>`;
+    } else {
+      body = `<div id="dropzone" class="drop"><p style="margin:0 0 8px"><b>Drop a .csv or .json file here</b>, or</p><input type="file" id="imp-file" data-file accept=".csv,.json,.txt,text/csv,application/json" aria-label="Choose a file to import"></div>
+        <label class="lab" for="imp-text">Or paste text</label><textarea id="imp-text" class="mono-area" data-imptext spellcheck="false" placeholder="Paste CSV or JSON here" style="min-height:130px"></textarea>
+        <div class="dlg-actions"><button class="btn" data-act="dlgexample" data-k="scenario">Fill example scenario</button><button class="btn" data-act="dlgexample" data-k="library">Fill example instrument</button><button class="btn" data-act="dlgreset">Restore built-in instruments</button></div>
+        <div id="imp-prev" aria-live="polite"></div>
+        <details class="fmt"><summary>Accepted formats</summary><pre>${esc(CHEAT)}</pre></details>`;
+    }
+    el.innerHTML = `<div class="backdrop" data-act="dlgclose"><div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-title"><div class="card-head"><h2 id="dlg-title">Import / Export</h2><span class="sp"></span>
+      <span class="tabs" role="group" aria-label="Mode"><button data-act="dlgtab" data-k="export" aria-pressed="${exp}">Export</button><button data-act="dlgtab" data-k="import" aria-pressed="${!exp}">Import</button></span>
+      <button class="iconbtn x" data-act="dlgclose" aria-label="Close">${ico('x')}</button></div>${body}</div></div>`;
+    if (exp) {
+      $('#exp-text').value = DL.bundle.text;
+      $('#exp-meta').textContent = `${DL.bundle.text.split('\n').length - 1} lines, ${(DL.bundle.text.length / 1024).toFixed(1)} KB`;
+    } else {
+      $('#imp-text').value = DL.text; renderPreview();
+      const dz = $('#dropzone');
+      dz.addEventListener('dragover', (ev) => { ev.preventDefault(); dz.classList.add('over'); });
+      dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+      dz.addEventListener('drop', (ev) => { ev.preventDefault(); dz.classList.remove('over'); readFile(ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]); });
+    }
+  }
+  function renderPreview() {
+    const el = $('#imp-prev'); if (!el) return;
+    const r = DL.parsed;
+    if (!r) { el.innerHTML = ''; return; }
+    const li = (arr, cls) => arr.slice(0, 8).map((m) => `<li class="${cls}">${esc(m)}</li>`).join('') + (arr.length > 8 ? `<li class="${cls}">...and ${arr.length - 8} more</li>` : '');
+    let head = 'This could not be imported.', can = false;
+    if (r.kind === 'scenario') {
+      const b = r.acts.filter((x) => x === 'BUY').length, sl = r.acts.filter((x) => x === 'SELL').length;
+      head = `Scenario with <b>${r.zs.length}</b> steps: ${b} buy, ${sl} sell, ${r.zs.length - b - sl} no trade.`; can = !r.errors.length;
+    } else if (r.kind === 'library') {
+      const ex = r.instruments.filter((i) => D.instruments.some((x) => x.name === i.name)).length;
+      head = `Instrument library with <b>${r.instruments.length}</b> valid instrument${r.instruments.length === 1 ? '' : 's'} (${r.instruments.length - ex} new, ${ex} replacing existing)${r.skipped ? `. ${r.skipped} skipped` : ''}.`;
+      can = r.instruments.length > 0;
+    } else if (r.kind === 'session') {
+      const known = D.instruments.some((i) => i.name === r.instrument) || !!r.definition;
+      head = `Session for <b>${esc(r.instrument)}</b>${r.scenario ? ` with a ${r.scenario.zs.length}-step scenario` : ''}, ${Object.keys(r.overrides).length} override${Object.keys(r.overrides).length === 1 ? '' : 's'}.`;
+      can = !r.errors.length && known;
+      if (!known && !r.errors.length) r.errors.push(`Instrument "${r.instrument}" is not in the library and the file does not define it.`);
+    }
+    el.innerHTML = `<div class="prev ${can ? 'ok' : 'bad'}"><p>${head}</p><ul>${li(r.errors, 'err')}${li(r.warnings || [], 'warn')}</ul>${can ? '<button class="btn orange" data-act="dlgapply">Apply import</button>' : ''}</div>`;
+  }
+  function onImportText(text, fname) {
+    DL.text = text;
+    DL.parsed = text.trim() ? IO.parseImport(text, fname) : null;
+    renderPreview();
+  }
+  function readFile(file) {
+    if (!file) return;
+    if (file.size > IO.MAX_BYTES) { DL.text = ''; DL.parsed = { kind: null, errors: ['That file is over 2 MB, which is more than this tool will read.'], warnings: [] }; $('#imp-text').value = ''; renderPreview(); return; }
+    const fr = new FileReader();
+    fr.onload = () => { const txt = String(fr.result); $('#imp-text').value = txt; onImportText(txt, file.name); };
+    fr.onerror = () => { DL.parsed = { kind: null, errors: ['Could not read that file.'], warnings: [] }; renderPreview(); };
+    fr.readAsText(file);
+  }
+  function applyImport() {
+    const r = DL.parsed; if (!r || !r.kind) return;
+    const setScenario = (sc, note) => { S.zs = sc.zs.slice(); S.acts = sc.acts.slice(); S.seed = sc.seed == null ? null : sc.seed; S.seedNote = note; S.pin = null; };
+    let msg = '';
+    if (r.kind === 'scenario') { setScenario(r, 'Imported scenario'); msg = `Scenario loaded: ${r.zs.length} steps.`; }
+    else if (r.kind === 'library') {
+      let add = 0, upd = 0;
+      r.instruments.forEach((i) => { const k = D.instruments.findIndex((x) => x.name === i.name); if (k >= 0) { D.instruments[k] = i; upd++; if (i.name === S.inst) S.over = {}; } else { D.instruments.push(i); add++; } });
+      S.search = '';
+      msg = `Instruments imported: ${add} new, ${upd} updated.`;
+    } else if (r.kind === 'session') {
+      let inst = D.instruments.find((i) => i.name === r.instrument);
+      if (!inst && r.definition) { D.instruments.push(r.definition); inst = r.definition; }
+      if (!inst) return;
+      S.inst = inst.name; S.over = Object.assign({}, r.overrides); S.glob = Object.assign({}, D.globals, r.globals);
+      if (r.scenario) setScenario(r.scenario, r.scenario.note || 'Imported session');
+      S.pin = null; msg = `Session loaded: ${inst.name}.`;
+    }
+    DL.open = false; renderDialog(); render(); toast(msg);
+  }
+  function closeDialog() { DL.open = false; renderDialog(); }
+  async function download(b) {
+    // Inside the Claude artifact viewer, plain downloads are blocked: the viewer offers a save prompt through the downloads capability.
+    let cap = null;
+    try { cap = window.claude && window.claude.use ? await window.claude.use('downloads') : null; } catch (_) { cap = null; }
+    if (cap) {
+      try { await cap.save({ filename: b.name, data: b.text }); toast(`Download started: ${b.name}`); return; }
+      catch (err) {
+        const c = err && err.code;
+        if (c === 'declined') return toast('Download cancelled.');
+        if (c === 'rate_limited') return toast('Another save prompt is open. Finish it, then try again.');
+        if (c !== 'unavailable' && c !== 'not_granted' && c !== 'capability_disabled' && c !== 'capability_removed') return toast('Could not save the file. Use Copy instead.');
+      }
+    }
+    try {   // standalone page: ordinary browser download
+      const url = URL.createObjectURL(new Blob([b.text], { type: b.mime + ';charset=utf-8' }));
+      const a = document.createElement('a'); a.href = url; a.download = b.name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      toast(`Saving ${b.name}. If nothing downloads, use Copy instead.`);
+    } catch (_) { toast('Downloads are not available here. Use Copy instead.'); }
+  }
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); toast('Copied to clipboard.'); }
+    catch (_) { const ta = $('#exp-text'); if (ta) { ta.focus(); ta.select(); } toast('Text selected. Press Ctrl or Cmd + C to copy.'); }
+  }
+  function dialogClick(a, t, e) {
+    if (a === 'dlgclose' && t.classList.contains('backdrop') && e.target !== t) return;
+    if (a === 'data') {
+      DL.open = true; DL.tab = t.dataset.tab || DL.tab; if (t.dataset.what) DL.what = t.dataset.what;
+      if (DL.tab === 'import') { DL.text = ''; DL.parsed = null; }
+      if (S.pop) { S.pop = null; render(); }
+      return renderDialog();
+    }
+    if (a === 'dlgclose') return closeDialog();
+    if (a === 'dlgtab') { DL.tab = t.dataset.k; DL.text = ''; DL.parsed = null; return renderDialog(); }
+    if (a === 'dlgwhat') { DL.what = t.dataset.k; if (DL.what === 'session') DL.fmt = 'json'; return renderDialog(); }
+    if (a === 'dlgfmt') { DL.fmt = t.dataset.k; return renderDialog(); }
+    if (a === 'dlgdl') return download(DL.bundle);
+    if (a === 'dlgcopy') return copyText(DL.bundle.text);
+    if (a === 'dlgexample') { const x = EXAMPLES[t.dataset.k]; $('#imp-text').value = x; return onImportText(x, 'example'); }
+    if (a === 'dlgapply') return applyImport();
+    if (a === 'dlgreset') {
+      D.instruments = JSON.parse(JSON.stringify(BUILTIN));
+      if (!D.instruments.some((i) => i.name === S.inst)) { S.inst = D.default; S.over = {}; }
+      render(); return toast('Built-in instruments restored.');
+    }
+  }
+
+  // ------------------------------------------------------------------ render + events
+  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => requestAnimationFrame(drawHero)) : null;
+  function render() {
+    compute();
+    const v = { desk: viewDesk, pricing: viewPricing, instruments: viewInstruments, activity: viewActivity, settings: viewSettings }[S.view]();
+    $('#app').innerHTML = header() + '<main style="display:grid;gap:12px">' + v + '</main><div class="foot">Illustrative levels, simulated clients and a simplified model. Educational use only, not trading advice.</div>';
+    if (ro) ro.disconnect();
+    if (S.view === 'desk') {
+      drawHero();
+      if (ro) ro.observe($('#plot'));
+      const sel = $('.wl-item[aria-current="true"]');
+      if (sel) { const wl = $('#wl'); wl.scrollLeft = Math.max(0, sel.offsetLeft - wl.offsetLeft - 8); }
+    }
+  }
+  const setView = (v) => { if (VIEWS.some((x) => x[0] === v)) { S.view = v; S.pop = null; try { history.replaceState(null, '', '#' + v); } catch (_) {} render(); window.scrollTo(0, 0); } };
+  function newScenario(seed) {
+    const g = E.generateScenario(seed, S.zs.length);
+    S.zs = g.zs; S.acts = g.acts; S.seed = seed; S.seedNote = 'Browser scenario'; S.pin = null;
+  }
+  function setSteps(n) {
+    n = Math.max(10, Math.min(500, Math.round(n) || 60));
+    if (n < S.zs.length) { S.zs.length = n; S.acts.length = n; }
+    else if (n > S.zs.length) { const g = E.generateScenario((S.seed || 1) + 7, n); S.zs = S.zs.concat(g.zs.slice(S.zs.length)); S.acts = S.acts.concat(g.acts.slice(S.acts.length)); }
+    S.pin = null;
+  }
+
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-act]');
+    if (!t) { if (S.pop && !e.target.closest('.pop')) { S.pop = null; render(); } return; }
+    const a = t.dataset.act;
+    if (a === 'data' || a.startsWith('dlg')) return dialogClick(a, t, e);
+    if (a === 'view') return setView(t.dataset.v);
+    if (a === 'pop') { S.pop = S.pop === t.dataset.id ? null : t.dataset.id; return render(); }
+    if (a === 'inst') { S.inst = t.dataset.name; S.over = {}; S.pin = null; S.pop = null; if (t.dataset.go) S.view = t.dataset.go; render(); return; }
+    if (a === 'search') { S.view = 'instruments'; S.pop = null; render(); const s = $('#search'); if (s) s.focus(); return; }
+    if (a === 'metric') { S.metric = t.dataset.m; S.pin = null; return render(); }
+    if (a === 'range') { S.range = +t.dataset.r; S.pin = null; return render(); }
+    if (a === 'barmode') { S.barMode = S.barMode === 'peak' ? 'end' : 'peak'; return render(); }
+    if (a === 'bartable') { S.barTable = !S.barTable; return render(); }
+    if (a === 'wlnext') { const wl = $('#wl'); wl.scrollBy({ left: wl.scrollLeft + wl.clientWidth >= wl.scrollWidth - 4 ? -wl.scrollWidth : 300, behavior: 'smooth' }); return; }
+    if (a === 'reshuffle') { newScenario(Math.floor(Math.random() * 90000) + 1000); return render(); }
+    if (a === 'excel') { S.zs = D.scenario.zs.slice(); S.acts = D.scenario.actions.slice(); S.seed = D.scenario.seed; S.seedNote = 'Excel scenario'; S.pin = null; return render(); }
+    if (a === 'resetover') { S.over = {}; S.glob = Object.assign({}, D.globals); return render(); }
+    if (a === 'cycle') { const i = +t.dataset.i, o = ['BUY', 'SELL', 'NONE']; S.acts[i] = o[(o.indexOf(S.acts[i]) + 1) % 3]; const sy = window.scrollY, sc = $('.scroll'), st = sc ? sc.scrollTop : 0; render(); window.scrollTo(0, sy); const n = $('.scroll'); if (n) n.scrollTop = st; return; }
+    if (a === 'clip') { S.clips = Math.max(-8, Math.min(8, S.clips + +t.dataset.d)); return render(); }
+    if (a === 'pinstep') { S.pin = +t.dataset.i; S.view = 'desk'; S.pop = null; S.range = 0; S.metric = 'pnl'; render(); const pl = $('#plot'); if (pl) pl.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && DL.open) { closeDialog(); return; }
+    if (e.key === 'Escape' && S.pop) { S.pop = null; render(); }
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('tr.clickable')) { e.preventDefault(); e.target.click(); }
+  });
+  document.addEventListener('input', (e) => {
+    if (e.target.dataset && e.target.dataset.imptext !== undefined) { onImportText(e.target.value, ''); return; }
+    if (e.target.id === 'search') { S.search = e.target.value; const pos = e.target.selectionStart; render(); const s = $('#search'); if (s) { s.focus(); s.setSelectionRange(pos, pos); } }
+  });
+  document.addEventListener('change', (e) => {
+    const t = e.target, keep = () => { const sy = window.scrollY; render(); window.scrollTo(0, sy); };
+    if (t.dataset.file !== undefined) { readFile(t.files && t.files[0]); return; }
+    if (t.dataset.field) {
+      const k = t.dataset.field, raw = t.value.trim(), v = parseFloat(raw);
+      if (raw === '' || Number.isNaN(v)) delete S.over[k]; else S.over[k] = t.dataset.pct ? v / 100 : v;
+      return keep();
+    }
+    if (t.dataset.glob) { S.glob[t.dataset.glob] = t.checked ? 1 : 0; return keep(); }
+    if (t.dataset.gpct) { const v = parseFloat(t.value); S.glob[t.dataset.gpct] = Number.isNaN(v) ? 0 : Math.max(0, Math.min(1, v / 100)); return keep(); }
+    if (t.dataset.gnum) { const v = parseFloat(t.value); S.glob[t.dataset.gnum] = Number.isNaN(v) ? 0 : v; return keep(); }
+    if (t.dataset.inst !== undefined) { S.inst = t.value; S.over = {}; S.pin = null; return keep(); }
+    if (t.dataset.steps !== undefined) { setSteps(parseFloat(t.value)); return keep(); }
+    if (t.dataset.z !== undefined) { const v = parseFloat(t.value); S.zs[+t.dataset.z] = Number.isNaN(v) ? 0 : v; const sy = window.scrollY, sc = $('.scroll'), st = sc ? sc.scrollTop : 0; render(); window.scrollTo(0, sy); const n = $('.scroll'); if (n) n.scrollTop = st; }
+  });
+  window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v && v !== S.view) setView(v); });
+  const h0 = location.hash.slice(1); if (VIEWS.some((x) => x[0] === h0)) S.view = h0;
+  render();
+})();
+</script>
+
+</body></html>
