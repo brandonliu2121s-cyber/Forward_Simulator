@@ -831,8 +831,20 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
     DL.open = false; renderDialog(); render(); toast(msg);
   }
   function closeDialog() { DL.open = false; renderDialog(); }
-  function download(b) {
-    try {
+  async function download(b) {
+    // Inside the Claude artifact viewer, plain downloads are blocked: the viewer offers a save prompt through the downloads capability.
+    let cap = null;
+    try { cap = window.claude && window.claude.use ? await window.claude.use('downloads') : null; } catch (_) { cap = null; }
+    if (cap) {
+      try { await cap.save({ filename: b.name, data: b.text }); toast(`Download started: ${b.name}`); return; }
+      catch (err) {
+        const c = err && err.code;
+        if (c === 'declined') return toast('Download cancelled.');
+        if (c === 'rate_limited') return toast('Another save prompt is open. Finish it, then try again.');
+        if (c !== 'unavailable' && c !== 'not_granted' && c !== 'capability_disabled' && c !== 'capability_removed') return toast('Could not save the file. Use Copy instead.');
+      }
+    }
+    try {   // standalone page: ordinary browser download
       const url = URL.createObjectURL(new Blob([b.text], { type: b.mime + ';charset=utf-8' }));
       const a = document.createElement('a'); a.href = url; a.download = b.name; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
