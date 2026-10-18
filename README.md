@@ -1,5 +1,7 @@
 # Forwards Market-Making Simulator (FX + Commodities)
 
+Two front ends over the same model: an **Excel workbook** and a **web dashboard** (`dashboard/index.html`, no server needed).
+
 An Excel simulation of a forwards market-making desk. Pick any instrument from a dropdown and the whole
 workbook re-prices:
 
@@ -23,11 +25,32 @@ Built-in instruments (all inputs are **illustrative placeholders, not live marke
 | `instruments.py` | Instrument library (single source of truth for the workbook and the checks). |
 | `build_simulator.py` | Regenerates the workbook. |
 | `reference_model.py` | Independent pure-Python implementation of the same logic (also generates the demo scenario). |
+| `dashboard/index.html` | The **Forward Desk** web dashboard (single self-contained file: open it in any browser). Built by `build_dashboard.py`. |
+| `dashboard/engine.js`, `dashboard/template.html` | Dashboard source: the simulation engine (a port of `reference_model.py`) and the UI. |
+| `build_dashboard.py` | Regenerates `dashboard/index.html` from the template, the engine and `instruments.py`. |
 | `verify_workbook.py` | Cross-checks every simulated cell against the reference model, for one instrument or all of them (optionally in live-spot mode). |
 | `live_data.py`, `refresh_live.py` | Optional live-spot snapshot: fetch prices, write `live_snapshot.json`, rebuild the workbook. Stdlib only. |
 | `tests/` | Unit tests for the live-data parsers (canned payloads, no network) and a synthetic snapshot fixture. |
 
-## Using it
+## Dashboard (Forward Desk)
+
+Open `dashboard/index.html` in a browser. Pure HTML, CSS and JavaScript: no frontend framework, no backend, no install.
+
+- **Desk**: P&L, spread capture, inventory MTM and hedge cost; an orange hero chart (hover for step detail, click or use the arrow keys to pin a step; markers show limit hedges); a watchlist of all 13 instruments with simulated P&L sparklines; limit-usage bars; a risk-score gauge; generated insights with clickable limit-event chips.
+- **Pricing**: the fair-forward derivation, a live bid/ask quote for any inventory, and the skew ladder.
+- **Instruments**: the library with fair forwards, forward points and simulated P&L; click a row to load it.
+- **Activity**: every step. Edit a market move or click an action (BUY / SELL / NONE) and everything recalculates.
+- **Settings**: override any instrument input, resize the scenario, load the Excel scenario or generate a random one.
+
+Scores: **Health** = share of steps quoting live. **Risk score** (0 to 100, higher is safer) = half inventory headroom plus half loss headroom, minus 4 per position-limit hedge and 10 per loss stop-out; the card also shows what inventory skew was worth against the same run with zero skew.
+
+```bash
+python3 build_dashboard.py                                     # rebuild dashboard/index.html
+python3 -m unittest discover -s tests -t .                     # includes: JS engine == Python reference, all 13 instruments
+PW_CHROMIUM=<chromium path> NODE_PATH=<playwright modules> node tests/ui_smoke.js   # optional UI smoke test (Playwright)
+```
+
+## Using the Excel workbook
 
 1. **Inputs**: choose the instrument in `C4`. Each assumption shows the instrument default, an optional *Override* (blue on yellow) and the *ACTIVE* value the model uses.
 2. **Instruments**: the library, with a live fair forward / forward points / premium-discount for every instrument. Edit any row or overwrite the Custom row to add your own.
