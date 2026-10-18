@@ -3,13 +3,14 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
-from instruments import ALL, params
-from reference_model import generate_scenario, simulate
-
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "python"))
+from instruments import ALL, params  # noqa: E402
+from reference_model import generate_scenario, simulate  # noqa: E402
 KEYS = ["spot", "fwd", "pos_open", "skew", "bid", "ask", "fill", "edge", "mtm", "pos_breach", "loss_breach",
         "hedge", "hedge_cost", "pos_close", "step_pnl", "cum", "halted"]
 

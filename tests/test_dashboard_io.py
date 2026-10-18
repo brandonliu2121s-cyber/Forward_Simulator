@@ -3,12 +3,14 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
-import build_dashboard
-
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "python"))
+sys.path.insert(0, os.path.join(ROOT, "dev"))
+import build_dashboard  # noqa: E402
 
 
 @unittest.skipUnless(shutil.which("node"), "node not installed")

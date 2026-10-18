@@ -1,20 +1,21 @@
 """Builds the Forward Desk dashboard (single self-contained HTML file, no server needed).
 
-    python3 build_dashboard.py                        # writes dashboard/index.html (open it in any browser)
-    python3 build_dashboard.py --fragment out.html    # also writes the bare fragment (no <html>/<head>/<body>) for publishing
+    python3 dev/build_dashboard.py                    # writes dashboard/index.html (open it in any browser)
+    python3 dev/build_dashboard.py --fragment out.html  # also writes the bare fragment (no <html>/<head>/<body>) for publishing
 
-The page embeds dashboard/engine.js (a port of reference_model.py, verified by tests/test_dashboard_engine.py),
+The page embeds dashboard/engine.js (a port of python/reference_model.py, verified by tests/test_dashboard_engine.py),
 dashboard/io.js (CSV/JSON import and export, verified by tests/test_dashboard_io.py)
-and the instrument library from instruments.py, so there is one source of truth for the numbers.
+and the instrument library from python/instruments.py, so there is one source of truth for the numbers.
 """
 import argparse
 import json
+import sys
 from pathlib import Path
 
-from instruments import ALL, DEFAULT, GLOBALS, params
-from reference_model import generate_scenario
-
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "python"))
+from instruments import ALL, DEFAULT, GLOBALS, params  # noqa: E402
+from reference_model import generate_scenario  # noqa: E402
 SEED, N_STEPS = 277, 60
 
 
