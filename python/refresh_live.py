@@ -4,7 +4,7 @@
     python3 python/refresh_live.py --provider frankfurter
     python3 python/refresh_live.py --no-rebuild          # only write live_snapshot.json
     python3 python/refresh_live.py --recalc <path to recalc.py>   # also recalculate with LibreOffice (optional)
-    python3 python/refresh_live.py --no-rebuild --push   # also store the quotes in Supabase (needs SUPABASE_URL + SUPABASE_SERVICE_KEY)
+    python3 python/refresh_live.py --no-rebuild --store  # also add the quotes to the local database (data/forward_desk.db)
 
 Then open Forwards_Market_Making_Simulator.xlsx, go to Inputs and set 'Use live spot' = 1.
 Educational use only: delayed, unofficial data; not for trading decisions.
@@ -15,7 +15,7 @@ import subprocess
 import sys
 
 from live_data import fetch_all, write_snapshot
-from supabase_push import PushError, push
+from local_db import DEFAULT_PATH, Database, snapshot_rows
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SNAPSHOT = os.path.join(ROOT, "live_snapshot.json")
@@ -26,7 +26,8 @@ def main(argv=None):
     ap.add_argument("--provider", choices=["yahoo", "frankfurter"], default="yahoo")
     ap.add_argument("--snapshot", default=SNAPSHOT)
     ap.add_argument("--no-rebuild", action="store_true")
-    ap.add_argument("--push", action="store_true", help="also insert the quotes into the Supabase price_snapshots table")
+    ap.add_argument("--store", action="store_true", help="also add the quotes to the local SQLite price history (server/app.py reads it)")
+    ap.add_argument("--db", default=DEFAULT_PATH, help="SQLite file used by --store (default data/forward_desk.db)")
     ap.add_argument("--recalc", help="path to the xlsx skill's recalc.py (LibreOffice) to compute cached values")
     a = ap.parse_args(argv)
 
@@ -42,12 +43,12 @@ def main(argv=None):
         return 1
     doc = write_snapshot(results, a.snapshot)
     print(f"snapshot written at {doc['fetched_utc']} UTC -> {a.snapshot}")
-    if a.push:
+    if a.store:
+        db = Database(a.db)
         try:
-            print(f"pushed {push(results)} quote(s) to Supabase")
-        except PushError as exc:
-            print(f"Supabase push failed: {exc}", file=sys.stderr)
-            return 2
+            print(f"stored {db.add_snapshots(snapshot_rows(results))} new snapshot(s) in {a.db}")
+        finally:
+            db.close()
     if ok < len(results):
         print("Some quotes failed: those instruments fall back to their library spot in the workbook.")
     if not a.no_rebuild:

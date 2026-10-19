@@ -332,15 +332,14 @@ h2, h3 { text-wrap: balance; }
 .nav button.rise, .tabs button.rise { transition-duration: 220ms, 120ms, 120ms, 120ms; }
 @starting-style { .nav button.rise, .tabs button.rise { transform: translateY(6px) scale(0.94); } }
 
-/* saved runs card (Supabase) */
-.cloudrow { display: flex; gap: 10px; flex-wrap: wrap; }
-.cloudrow input { flex: 1 1 220px; min-width: 0; height: 38px; background: #0e0e0e; border: 1px solid #2c2c2c; border-radius: 10px; padding: 0 12px; }
-.cloud .mail { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cloud h4.sub { margin: 16px 0 6px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+/* saved runs card (local server) */
+.savedrow { display: flex; gap: 10px; flex-wrap: wrap; }
+.savedrow input { flex: 1 1 220px; min-width: 0; height: 38px; background: #0e0e0e; border: 1px solid #2c2c2c; border-radius: 10px; padding: 0 12px; }
+.saved h4.sub { margin: 16px 0 6px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
 .runs { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .run { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--tile-line); border-radius: 12px; background: var(--tile); }
 .run .rn { flex: 1 1 200px; min-width: 0; display: grid; gap: 2px; overflow-wrap: anywhere; }
-.cloud .note { margin: 10px 0 0; min-height: 1.2em; overflow-wrap: anywhere; }
+.saved .note { margin: 10px 0 0; min-height: 1.2em; overflow-wrap: anywhere; }
 .btn.danger { background: var(--orange); border-color: var(--orange); color: #fff; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -843,140 +842,68 @@ if (typeof module !== 'undefined') module.exports = IO;
 
 </script>
 <script>
-/* Forward Desk persistence: saved runs in Supabase (Postgres), no library and no server of our own.
-   - Auth: Supabase magic link (email one-time link). The session lives in localStorage; it is refreshed shortly before it expires.
-   - Data: PostgREST over fetch. Row-level security (supabase/migrations/0001_init.sql) limits every row to its owner, so the
-     public URL and publishable key in the page are safe to ship.
-   - With no config the store reports { enabled: false } and the dashboard behaves as a plain static page. */
+/* Forward Desk saved runs: a small client for the optional local server (server/app.py).
+   The server keeps runs in a SQLite file on this machine. The dashboard only talks to it when the page itself was served by that
+   server (same origin); opened as a plain file, or from the published artifact, probe() reports false and the page stays static. */
 const Store = (() => {
-  const KEY = 'forward-desk-auth';
-  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
   class StoreError extends Error { constructor(msg, status) { super(msg); this.name = 'StoreError'; this.status = status || 0; } }
+  const ID = /^\d{1,12}$/;
 
-  function safeStorage() { try { const s = globalThis.localStorage; s.getItem('x'); return s; } catch (_) { return null; } }
-  function b64json(part) {
-    const bin = atob(part.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(part.length / 4) * 4, '='));
-    return JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))));
-  }
-  const goodUrl = (u) => /^https:\/\/[a-z0-9-]+\.supabase\.(co|in)\/?$/i.test(u) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/i.test(u);
-
-  function create(cfg, deps) {
+  function create(deps) {
     deps = deps || {};
     const fetchFn = deps.fetch || (typeof fetch !== 'undefined' ? fetch.bind(globalThis) : null);
-    const storage = 'storage' in deps ? deps.storage : safeStorage();
-    const now = deps.now || (() => Date.now());
-    if (!cfg || typeof cfg.url !== 'string' || typeof cfg.key !== 'string' || !cfg.key || !goodUrl(cfg.url) || !fetchFn) return { enabled: false };
-    const base = cfg.url.replace(/\/+$/, '');
-    let session = null;
-    try { const raw = storage && storage.getItem(KEY); if (raw) session = JSON.parse(raw); } catch (_) { session = null; }
-    if (!session || !session.access_token || !session.user) session = null;
-    const persist = () => { try { if (storage) { if (session) storage.setItem(KEY, JSON.stringify(session)); else storage.removeItem(KEY); } } catch (_) { /* private mode */ } };
+    const proto = 'protocol' in deps ? deps.protocol : (typeof location !== 'undefined' ? location.protocol : '');
+    const timeout = deps.timeout || 1500;
+    if (!fetchFn || !/^https?:$/.test(proto)) return { enabled: false, probe: async () => false };
 
-    async function raw(path, opt) {
-      opt = opt || {};
-      const headers = Object.assign({ apikey: cfg.key, Authorization: 'Bearer ' + (opt.token || cfg.key) }, opt.headers || {});
-      if (opt.body !== undefined) headers['Content-Type'] = 'application/json';
+    async function call(path, method, body) {
       let res;
-      try { res = await fetchFn(base + path, { method: opt.method || 'GET', headers, body: opt.body === undefined ? undefined : JSON.stringify(opt.body) }); }
-      catch (_) { throw new StoreError('Could not reach the database. Check your connection and try again.'); }
+      try {
+        res = await fetchFn(path, { method, headers: body === undefined ? {} : { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+      } catch (_) { throw new StoreError('Could not reach the local server. Is it still running?'); }
       let data = null;
       try { const t = await res.text(); data = t ? JSON.parse(t) : null; } catch (_) { data = null; }
-      if (!res.ok) {
-        const m = data && (data.msg || data.message || data.error_description || data.error);
-        throw new StoreError(typeof m === 'string' && m ? m.slice(0, 200) : 'The database refused the request (' + res.status + ').', res.status);
-      }
-      return data;
+      if (!res.ok) throw new StoreError(data && typeof data.error === 'string' ? data.error.slice(0, 200) : 'The server refused the request (' + res.status + ').', res.status);
+      return data || {};
     }
-
-    async function refresh() {
-      if (!session || !session.refresh_token) throw new StoreError('Please sign in again.', 401);
-      let d;
-      try { d = await raw('/auth/v1/token?grant_type=refresh_token', { method: 'POST', body: { refresh_token: session.refresh_token } }); }
-      catch (e) { if (e.status === 400 || e.status === 401) { session = null; persist(); throw new StoreError('Your sign-in expired. Please sign in again.', 401); } throw e; }
-      session = fromTokens(d);
-      persist();
-    }
-    function fromTokens(d) {
-      let claims = {};
-      try { claims = b64json(String(d.access_token).split('.')[1]); } catch (_) { throw new StoreError('Unexpected sign-in response.'); }
-      if (!claims.sub) throw new StoreError('Unexpected sign-in response.');
-      const exp = d.expires_at ? +d.expires_at : (claims.exp ? +claims.exp : Math.floor(now() / 1000) + (+d.expires_in || 3600));
-      return { access_token: d.access_token, refresh_token: d.refresh_token || '', expires_at: exp, user: { id: claims.sub, email: String(claims.email || (d.user && d.user.email) || '') } };
-    }
-    async function authed(path, opt) {
-      if (!session) throw new StoreError('Please sign in first.', 401);
-      if (session.expires_at - now() / 1000 < 60) await refresh();
-      try { return await raw(path, Object.assign({ token: session.access_token }, opt)); }
-      catch (e) {
-        if (e.status !== 401 || !session) throw e;
-        await refresh();                                  // token rejected: refresh once, then retry
-        return raw(path, Object.assign({ token: session.access_token }, opt));
-      }
-    }
-    const rows = (d) => (Array.isArray(d) ? d : []);
-    const idOk = (id) => { if (!UUID.test(String(id))) throw new StoreError('That is not a valid run id.'); return String(id); };
+    const idOk = (id) => { if (!ID.test(String(id))) throw new StoreError('That is not a valid run id.'); return String(id); };
 
     return {
       enabled: true,
-      user: () => (session ? session.user : null),
-      async signInWithEmail(email, redirectTo) {
-        email = String(email || '').trim();
-        if (!EMAIL.test(email) || email.length > 254) throw new StoreError('Enter a valid email address.');
-        await raw('/auth/v1/otp' + (redirectTo ? '?redirect_to=' + encodeURIComponent(redirectTo) : ''), { method: 'POST', body: { email, create_user: true } });
+      /* true when a Forward Desk server answers on this origin */
+      async probe() {
+        const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timer = ctl ? setTimeout(() => ctl.abort(), timeout) : null;
+        try {
+          const res = await fetchFn('/api/health', ctl ? { signal: ctl.signal } : {});
+          const d = res.ok ? JSON.parse(await res.text()) : null;
+          return !!(d && d.ok === true);
+        } catch (_) { return false; } finally { if (timer) clearTimeout(timer); }
       },
-      /* Call once on load with location.hash. -> null (nothing to do) | { ok: true } | { ok: false, error } */
-      consumeRedirect(hash) {
-        const p = new URLSearchParams(String(hash || '').replace(/^#/, ''));
-        if (p.get('error_description') || p.get('error')) return { ok: false, error: (p.get('error_description') || p.get('error')).replace(/\+/g, ' ').slice(0, 200) };
-        if (!p.get('access_token')) return null;
-        try { session = fromTokens({ access_token: p.get('access_token'), refresh_token: p.get('refresh_token'), expires_in: p.get('expires_in'), expires_at: p.get('expires_at') }); }
-        catch (e) { return { ok: false, error: e.message }; }
-        persist();
-        return { ok: true };
-      },
-      async signOut() {
-        const t = session && session.access_token;
-        session = null; persist();
-        if (t) { try { await raw('/auth/v1/logout', { method: 'POST', token: t }); } catch (_) { /* already signed out locally */ } }
-      },
-      async list() {
-        return rows(await authed('/rest/v1/runs?select=id,name,instrument,created_at,summary&order=created_at.desc&limit=50'));
-      },
+      async list() { const d = await call('/api/runs', 'GET'); return Array.isArray(d.runs) ? d.runs : []; },
       async save(run) {
         const name = String(run.name || '').trim().slice(0, 80);
         if (!name) throw new StoreError('Give the run a name.');
-        const d = await authed('/rest/v1/runs', { method: 'POST', headers: { Prefer: 'return=representation' },
-          body: { name, instrument: String(run.instrument).slice(0, 80), session: run.session, summary: run.summary || {} } });
-        const r = rows(d)[0];
-        if (!r) throw new StoreError('The run was not saved.');
-        return r;
+        const d = await call('/api/runs', 'POST', { name, instrument: String(run.instrument).slice(0, 80), session: run.session, summary: run.summary || {} });
+        if (!d.run) throw new StoreError('The run was not saved.');
+        return d.run;
       },
-      async get(id) {
-        const r = rows(await authed('/rest/v1/runs?id=eq.' + idOk(id) + '&select=id,name,instrument,session'))[0];
-        if (!r) throw new StoreError('That run no longer exists.');
-        return r;
-      },
-      async remove(id) {
-        const d = rows(await authed('/rest/v1/runs?id=eq.' + idOk(id), { method: 'DELETE', headers: { Prefer: 'return=representation' } }));
-        if (!d.length) throw new StoreError('That run no longer exists.');
-      },
+      async get(id) { const d = await call('/api/runs/' + idOk(id), 'GET'); if (!d.run) throw new StoreError('That run no longer exists.'); return d.run; },
+      async remove(id) { await call('/api/runs/' + idOk(id), 'DELETE'); },
     };
   }
-  return { create, StoreError, goodUrl };
+  return { create, StoreError };
 })();
 if (typeof module !== 'undefined') module.exports = Store;
 
 </script>
 <script>
 const DATA = {"instruments":[{"name":"USD/SGD","type":"FX","unit":"USD","pnl":"SGD","note":"Original project brief: USD 4.00%, SGD 0.55%, 45-day tenor, USD 250k, 5-tick spread. Spot illustrative.","params":{"rate_a":0.04,"rate_b":0.0055,"basis_a":360,"basis_b":365,"tenor_days":45,"tick":0.0001,"clip":250000,"spread_ticks":5,"max_skew_ticks":3,"pos_limit":1000000,"loss_limit":1800,"hedge_cost_ticks":1.0,"step_vol_ticks":3,"spot_init":1.285}},{"name":"EUR/USD","type":"FX","unit":"EUR","pnl":"USD","note":"Most liquid pair: tight spread. Rates illustrative (EUR 2.00%, USD 4.00%).","params":{"rate_a":0.02,"rate_b":0.04,"basis_a":360,"basis_b":360,"tenor_days":45,"tick":0.0001,"clip":250000,"spread_ticks":2,"max_skew_ticks":1,"pos_limit":1000000,"loss_limit":2400,"hedge_cost_ticks":0.5,"step_vol_ticks":4,"spot_init":1.16}},{"name":"GBP/USD","type":"FX","unit":"GBP","pnl":"USD","note":"Rates illustrative (GBP 4.00%, USD 4.00%): near-zero carry, forward ~ spot.","params":{"rate_a":0.04,"rate_b":0.04,"basis_a":365,"basis_b":360,"tenor_days":45,"tick":0.0001,"clip":250000,"spread_ticks":3,"max_skew_ticks":2,"pos_limit":1000000,"loss_limit":3000,"hedge_cost_ticks":1.0,"step_vol_ticks":5,"spot_init":1.34}},{"name":"USD/JPY","type":"FX","unit":"USD","pnl":"JPY","note":"JPY quoted to 2 decimals (1 tick = 0.01). Large forward discount: USD yield >> JPY yield. Illustrative.","params":{"rate_a":0.04,"rate_b":0.005,"basis_a":360,"basis_b":360,"tenor_days":45,"tick":0.01,"clip":250000,"spread_ticks":3,"max_skew_ticks":2,"pos_limit":1000000,"loss_limit":360000,"hedge_cost_ticks":1.0,"step_vol_ticks":6,"spot_init":150.0}},{"name":"AUD/USD","type":"FX","unit":"AUD","pnl":"USD","note":"Rates illustrative (AUD 3.60%, USD 4.00%).","params":{"rate_a":0.036,"rate_b":0.04,"basis_a":365,"basis_b":360,"tenor_days":45,"tick":0.0001,"clip":250000,"spread_ticks":3,"max_skew_ticks":2,"pos_limit":1000000,"loss_limit":2400,"hedge_cost_ticks":1.0,"step_vol_ticks":4,"spot_init":0.66}},{"name":"USD/CHF","type":"FX","unit":"USD","pnl":"CHF","note":"Rates illustrative (USD 4.00%, CHF 0.25%): large forward discount.","params":{"rate_a":0.04,"rate_b":0.0025,"basis_a":360,"basis_b":360,"tenor_days":45,"tick":0.0001,"clip":250000,"spread_ticks":3,"max_skew_ticks":2,"pos_limit":1000000,"loss_limit":2400,"hedge_cost_ticks":1.0,"step_vol_ticks":4,"spot_init":0.8}},{"name":"USD/CNH","type":"FX","unit":"USD","pnl":"CNH","note":"Offshore yuan: wider spread / skew than G10. Rates illustrative (USD 4.00%, CNH 1.80%).","params":{"rate_a":0.04,"rate_b":0.018,"basis_a":360,"basis_b":365,"tenor_days":45,"tick":0.0001,"clip":250000,"spread_ticks":8,"max_skew_ticks":4,"pos_limit":1000000,"loss_limit":3000,"hedge_cost_ticks":1.0,"step_vol_ticks":5,"spot_init":7.15}},{"name":"Gold","type":"Commodity","unit":"oz","pnl":"USD","note":"Price USD/oz, 90-day forward. Conv. yield ~ lease rate 0.20%; financing 4.00% + storage 0.10%. Contango. Illustrative.","params":{"rate_a":0.002,"rate_b":0.041,"basis_a":365,"basis_b":365,"tenor_days":90,"tick":0.1,"clip":1000,"spread_ticks":5,"max_skew_ticks":3,"pos_limit":4000,"loss_limit":36000,"hedge_cost_ticks":1.0,"step_vol_ticks":15,"spot_init":4000.0}},{"name":"Silver","type":"Commodity","unit":"oz","pnl":"USD","note":"Price USD/oz, 90-day forward. Conv. yield 0.30%; financing 4.00% + storage 0.30%. Illustrative.","params":{"rate_a":0.003,"rate_b":0.043000000000000003,"basis_a":365,"basis_b":365,"tenor_days":90,"tick":0.01,"clip":50000,"spread_ticks":5,"max_skew_ticks":3,"pos_limit":200000,"loss_limit":120000,"hedge_cost_ticks":1.0,"step_vol_ticks":10,"spot_init":45.0}},{"name":"WTI Crude","type":"Commodity","unit":"bbl","pnl":"USD","note":"Price USD/bbl, 90-day forward. Conv. yield 7.00% > carry 6.00% -> mild BACKWARDATION (forward < spot). Illustrative.","params":{"rate_a":0.07,"rate_b":0.06,"basis_a":365,"basis_b":365,"tenor_days":90,"tick":0.01,"clip":10000,"spread_ticks":4,"max_skew_ticks":3,"pos_limit":40000,"loss_limit":19200,"hedge_cost_ticks":1.0,"step_vol_ticks":8,"spot_init":65.0}},{"name":"Brent Crude","type":"Commodity","unit":"bbl","pnl":"USD","note":"Price USD/bbl (ICE Brent), 90-day forward. Conv. yield 7.00% > carry 6.00% -> mild BACKWARDATION. Illustrative.","params":{"rate_a":0.07,"rate_b":0.06,"basis_a":365,"basis_b":365,"tenor_days":90,"tick":0.01,"clip":10000,"spread_ticks":4,"max_skew_ticks":3,"pos_limit":40000,"loss_limit":19200,"hedge_cost_ticks":1.0,"step_vol_ticks":8,"spot_init":69.0}},{"name":"Copper","type":"Commodity","unit":"t","pnl":"USD","note":"Price USD/tonne, 90-day forward. Conv. yield 2.00%; financing 4.00% + storage 1.00%. Illustrative.","params":{"rate_a":0.02,"rate_b":0.05,"basis_a":365,"basis_b":365,"tenor_days":90,"tick":0.5,"clip":25,"spread_ticks":4,"max_skew_ticks":2,"pos_limit":100,"loss_limit":3000,"hedge_cost_ticks":1.0,"step_vol_ticks":10,"spot_init":10000.0}},{"name":"Natural Gas","type":"Commodity","unit":"MMBtu","pnl":"USD","note":"Price USD/MMBtu, 90-day forward. Very high storage cost (12%) -> steep CONTANGO. Illustrative.","params":{"rate_a":0.0,"rate_b":0.16,"basis_a":365,"basis_b":365,"tenor_days":90,"tick":0.001,"clip":10000,"spread_ticks":5,"max_skew_ticks":3,"pos_limit":40000,"loss_limit":2400,"hedge_cost_ticks":1.0,"step_vol_ticks":10,"spot_init":3.5}},{"name":"Custom (edit me)","type":"FX","unit":"USD","pnl":"MYR","note":"EXAMPLE ROW (USD/MYR, illustrative): overwrite every blue cell with your own instrument.","params":{"rate_a":0.04,"rate_b":0.03,"basis_a":360,"basis_b":365,"tenor_days":45,"tick":0.0001,"clip":250000,"spread_ticks":8,"max_skew_ticks":4,"pos_limit":1000000,"loss_limit":3000,"hedge_cost_ticks":1.0,"step_vol_ticks":5,"spot_init":4.2}}],"globals":{"hedge_target_pct":0.0,"halt_on_loss":1,"start_pos":0},"scenario":{"zs":[1.8,-1.3,-0.4,1.2,0.2,-0.3,-0.7,0.0,1.0,0.4,0.2,0.3,0.2,-1.1,-2.6,-1.0,-1.0,1.2,-1.8,0.5,0.0,0.2,-0.1,-1.3,0.4,0.7,-1.3,-1.5,-1.9,-1.5,-0.8,-0.5,-1.5,-0.3,-0.4,-0.9,-1.5,-1.4,-0.9,-2.5,-1.1,-0.4,0.1,0.3,0.5,-0.2,-0.9,0.5,0.5,-1.7,-0.7,-1.5,-0.2,0.4,-0.5,0.0,0.2,0.2,0.4,-0.5],"actions":["NONE","BUY","NONE","BUY","SELL","NONE","SELL","BUY","SELL","NONE","NONE","NONE","SELL","NONE","SELL","NONE","SELL","NONE","BUY","NONE","SELL","SELL","NONE","SELL","SELL","SELL","SELL","SELL","SELL","NONE","SELL","BUY","NONE","SELL","NONE","SELL","NONE","SELL","BUY","SELL","SELL","NONE","SELL","BUY","SELL","BUY","SELL","BUY","SELL","SELL","BUY","BUY","BUY","BUY","BUY","NONE","BUY","BUY","NONE","SELL"],"seed":277},"default":"USD/SGD"};
-const CLOUD = null;   // { url, key } when dashboard/config.json exists; null keeps the page fully static
 
 (() => {
   'use strict';
   const D = DATA, E = Engine;
-  const ST = Store.create(CLOUD && { url: CLOUD.url, key: CLOUD.key });   // { enabled: false } without a config
+  const ST = Store.create();   // talks to the local server (server/app.py) when this page was served by it
   const BUILTIN = JSON.parse(JSON.stringify(D.instruments));
   const $ = (s, r = document) => r.querySelector(s);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1044,7 +971,7 @@ const CLOUD = null;   // { url, key } when dashboard/config.json exists; null ke
   const VIEWS = [['setup', 'Setup'], ['desk', 'Desk'], ['pricing', 'Pricing'], ['instruments', 'Instruments'], ['activity', 'Activity']];
   const RESULT_VIEWS = { desk: 'Desk', pricing: 'Pricing', instruments: 'Instruments', activity: 'Activity' };
   const S = {
-    view: 'setup', ran: false, fresh: {}, sig: '', cloud: { runs: null, busy: false, note: '', email: '', name: '', confirm: null }, inst: D.default, over: {}, glob: Object.assign({}, D.globals),
+    view: 'setup', ran: false, fresh: {}, sig: '', saved: { on: false, runs: null, busy: false, note: '', name: '', confirm: null }, inst: D.default, over: {}, glob: Object.assign({}, D.globals),
     zs: D.scenario.zs.slice(), acts: D.scenario.actions.slice(), seed: D.scenario.seed, seedNote: 'Excel scenario',
     range: 0, metric: 'pnl', pin: null, barMode: 'peak', barTable: false, clips: 2, search: '', pop: null,
     intro: true, popAnim: false, tabAnim: false,
@@ -1367,52 +1294,46 @@ const CLOUD = null;   // { url, key } when dashboard/config.json exists; null ke
         <div class="field"><label for="g-hp">Residual after limit hedge (% of limit)</label><input id="g-hp" type="number" step="5" min="0" max="100" data-gpct="hedge_target_pct" value="${S.glob.hedge_target_pct * 100}"></div>
         <div class="field"><label for="g-sp">Opening position (${u})</label><input id="g-sp" type="number" step="1" data-gnum="start_pos" value="${S.glob.start_pos}"></div>
         <div class="field"><label>Loss-limit stop-out</label><label class="toggle"><input type="checkbox" data-glob="halt_on_loss" ${S.glob.halt_on_loss === 1 ? 'checked' : ''}>Halt quoting after a breach</label></div></div></section></div>
-      ${cloudCard()}
+      ${savedCard()}
       <section class="card cta"><div><h3>${S.ran ? 'Ready to refresh?' : 'Ready to run?'}</h3><p class="muted" style="margin:4px 0 0">${esc(S.inst)} · ${plural(S.zs.length, 'client request', 'client requests')} · ${esc(S.seedNote)}${Object.keys(S.over).length ? ' · ' + plural(Object.keys(S.over).length, 'override', 'overrides') : ''}</p></div><span style="flex:1"></span>${runBtn}</section>`;
   }
 
-  // ------------------------------------------------------------------ saved runs (Supabase; only when dashboard/config.json exists)
-  function cloudCard() {
-    if (!ST.enabled) return '';
-    const c = S.cloud, user = ST.user(), dis = c.busy ? ' disabled' : '';
+  // ------------------------------------------------------------------ saved runs (local server + SQLite; shown only when the server answers)
+  function savedCard() {
+    if (!S.saved.on) return '';
+    const c = S.saved, dis = c.busy ? ' disabled' : '';
     const fmtDate = (iso) => { const d = new Date(iso); return Number.isNaN(+d) ? '' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }); };
-    let body;
-    if (!user) {
-      body = `<p class="muted" style="margin:4px 0 12px">Sign in with your email to save setups and reopen them later. You get a one-time link by email, no password.</p>
-        <div class="cloudrow"><input id="cl-email" type="email" autocomplete="email" placeholder="you@example.com" aria-label="Email address" data-cloudfield="email" data-cloudenter="cloudin" value="${esc(c.email)}"><button class="btn orange" data-act="cloudin"${dis}>Email me a link</button></div>`;
-    } else {
-      const runs = c.runs;
-      const list = runs == null ? '<p class="muted">Loading your runs…</p>' : !runs.length ? '<p class="muted">Nothing saved yet. Name this setup and press Save.</p>'
-        : `<ul class="runs">${runs.map((r) => {
-          const sm = r.summary || {}, pnl = Number.isFinite(+sm.pnl) ? `${money(+sm.pnl, pnlDec(+sm.pnl))} ${esc(String(sm.ccy || '').slice(0, 6))}` : '';
-          const del = c.confirm === r.id;
-          return `<li class="run"><div class="rn"><b>${esc(r.name)}</b><span class="muted">${esc(r.instrument)}${pnl ? ' · ' + pnl : ''}${fmtDate(r.created_at) ? ' · ' + fmtDate(r.created_at) : ''}</span></div>
-            <button class="btn" data-act="cloudload" data-id="${esc(r.id)}"${dis}>Load</button>
-            <button class="btn${del ? ' danger' : ''}" data-act="clouddel" data-id="${esc(r.id)}" aria-label="${del ? 'Confirm delete ' : 'Delete '}${esc(r.name)}"${dis}>${del ? 'Confirm' : 'Delete'}</button></li>`; }).join('')}</ul>`;
-      body = `<div class="cloudrow"><input id="cl-name" type="text" maxlength="80" placeholder="${esc(S.inst)} · ${new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}" aria-label="Name for this run" data-cloudfield="name" data-cloudenter="cloudsave" value="${esc(c.name)}"><button class="btn orange" data-act="cloudsave"${dis}>Save this setup</button></div>
-        <h4 class="sub">${runs && runs.length ? plural(runs.length, 'saved run', 'saved runs') : 'Your saved runs'}</h4>${list}`;
-    }
-    return `<section class="card cloud" aria-label="Saved runs"><div class="card-head"><h3>Saved runs</h3><span class="sp"></span>${user ? `<span class="muted mail" title="${esc(user.email)}">${esc(user.email)}</span><button class="btn" data-act="cloudout"${dis}>Sign out</button>` : ''}</div>
-      ${body}<p class="muted note" role="status" aria-live="polite">${esc(c.note)}</p></section>`;
+    const runs = c.runs;
+    const list = runs == null ? '<p class="muted">Loading your runs…</p>' : !runs.length ? '<p class="muted">Nothing saved yet. Name this setup and press Save.</p>'
+      : `<ul class="runs">${runs.map((r) => {
+        const sm = r.summary || {}, pnl = Number.isFinite(+sm.pnl) ? `${money(+sm.pnl, pnlDec(+sm.pnl))} ${esc(String(sm.ccy || '').slice(0, 6))}` : '';
+        const del = c.confirm === String(r.id);
+        return `<li class="run"><div class="rn"><b>${esc(r.name)}</b><span class="muted">${esc(r.instrument)}${pnl ? ' · ' + pnl : ''}${fmtDate(r.created_at) ? ' · ' + fmtDate(r.created_at) : ''}</span></div>
+          <button class="btn" data-act="savedload" data-id="${esc(r.id)}"${dis}>Load</button>
+          <button class="btn${del ? ' danger' : ''}" data-act="saveddel" data-id="${esc(r.id)}" aria-label="${del ? 'Confirm delete ' : 'Delete '}${esc(r.name)}"${dis}>${del ? 'Confirm' : 'Delete'}</button></li>`; }).join('')}</ul>`;
+    return `<section class="card saved" aria-label="Saved runs"><div class="card-head"><h3>Saved runs</h3><span class="sp"></span><span class="muted">Stored on this computer</span></div>
+      <div class="savedrow"><input id="sv-name" type="text" maxlength="80" placeholder="${esc(S.inst)} · ${new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}" aria-label="Name for this run" data-savedfield="name" data-savedenter="savedsave" value="${esc(c.name)}"><button class="btn orange" data-act="savedsave"${dis}>Save this setup</button></div>
+      <h4 class="sub">${runs && runs.length ? plural(runs.length, 'saved run', 'saved runs') : 'Your saved runs'}</h4>${list}
+      <p class="muted note" role="status" aria-live="polite">${esc(c.note)}</p></section>`;
   }
-  async function cloudDo(fn, okNote) {
-    const c = S.cloud; c.busy = true; c.note = ''; render();
+  async function savedDo(fn, okNote) {
+    const c = S.saved; c.busy = true; c.note = ''; render();
     try { const r = await fn(); if (okNote) c.note = typeof okNote === 'function' ? okNote(r) : okNote; }
-    catch (e) { c.note = e && e.message ? e.message : 'Something went wrong.'; if (e && e.status === 401) c.runs = null; }
+    catch (e) { c.note = e && e.message ? e.message : 'Something went wrong.'; }
     c.busy = false; render();
   }
-  const cloudRefresh = async () => { S.cloud.runs = await ST.list(); };
-  function cloudSave() {
-    const c = S.cloud, name = (c.name || '').trim() || `${S.inst} · ${new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`;
+  const savedRefresh = async () => { S.saved.runs = await ST.list(); };
+  function savedSave() {
+    const c = S.saved, name = (c.name || '').trim() || `${S.inst} · ${new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`;
     const doc = JSON.parse(IO.exportSessionJSON({ instrument: S.inst, definition: C.inst, overrides: S.over, globals: S.glob, scenario: { seed: S.seed, note: S.seedNote, zs: S.zs, acts: S.acts }, summary: C.sum, rows: C.rows }));
     delete doc.steps;   // the rows are recomputed on load; keep the stored document small
     const summary = { pnl: C.sum.cum, ccy: C.inst.pnl, steps: C.sum.n, risk: C.sum.risk, health: C.sum.health };
-    return cloudDo(async () => { await ST.save({ name, instrument: S.inst, session: doc, summary }); c.name = ''; await cloudRefresh(); }, `Saved “${name.slice(0, 40)}”.`);
+    return savedDo(async () => { await ST.save({ name, instrument: S.inst, session: doc, summary }); c.name = ''; await savedRefresh(); }, `Saved “${name.slice(0, 40)}”.`);
   }
-  function cloudLoad(id) {
-    return cloudDo(async () => {
+  function savedLoad(id) {
+    return savedDo(async () => {
       const row = await ST.get(id);
-      const r = IO.parseImport(JSON.stringify(row.session), 'saved-run.json');
+      const r = IO.parseImport(JSON.stringify(row.session), 'saved-run.json');   // same validation as a file import
       if (r.kind !== 'session' || (r.errors && r.errors.length)) throw new Error('That saved run could not be read: ' + ((r.errors && r.errors[0]) || 'unknown format'));
       const msg = applySession(r, scenarioSetter);
       if (!msg) throw new Error('That run uses an instrument that is not in this library.');
@@ -1703,13 +1624,11 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
     if (!t) { if (S.pop && !e.target.closest('.pop')) { S.pop = null; render(); } return; }
     const a = t.dataset.act;
     if (a === 'data' || a.startsWith('dlg')) return dialogClick(a, t, e);
-    if (a === 'cloudin') { return cloudDo(() => ST.signInWithEmail(S.cloud.email, location.origin + location.pathname), 'Check your inbox for the sign-in link. It opens this page signed in.'); }
-    if (a === 'cloudout') { return cloudDo(async () => { await ST.signOut(); S.cloud.runs = null; }, 'Signed out.'); }
-    if (a === 'cloudsave') return cloudSave();
-    if (a === 'cloudload') return cloudLoad(t.dataset.id);
-    if (a === 'clouddel') {
-      if (S.cloud.confirm !== t.dataset.id) { S.cloud.confirm = t.dataset.id; return render(); }   // first click arms it, second deletes
-      S.cloud.confirm = null; return cloudDo(async () => { await ST.remove(t.dataset.id); await cloudRefresh(); }, 'Deleted.');
+    if (a === 'savedsave') return savedSave();
+    if (a === 'savedload') return savedLoad(t.dataset.id);
+    if (a === 'saveddel') {
+      if (S.saved.confirm !== t.dataset.id) { S.saved.confirm = t.dataset.id; return render(); }   // first click arms it, second deletes
+      S.saved.confirm = null; return savedDo(async () => { await ST.remove(t.dataset.id); await savedRefresh(); }, 'Deleted.');
     }
     if (a === 'run') { S.ran = true; S.intro = true; S.fresh = { desk: 1, pricing: 1 }; S.pin = null; S.pop = null; return setView('desk'); }   // results pop in with the stagger and the chart reveal (Run is a deliberate one-off, so keyboard use animates too)
     if (a === 'view') { S.tabAnim = e.detail !== 0 && t.dataset.v !== S.view; return setView(t.dataset.v); }   // keyboard-initiated: no animation
@@ -1734,11 +1653,11 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
     if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('tr.clickable')) { e.preventDefault(); e.target.click(); }
   });
   document.addEventListener('keydown', (e) => {
-    const f = e.target.dataset && e.target.dataset.cloudenter;
+    const f = e.target.dataset && e.target.dataset.savedenter;
     if (f && e.key === 'Enter') { e.preventDefault(); const b = document.querySelector('[data-act="' + f + '"]'); if (b && !b.disabled) b.click(); }
   });
   document.addEventListener('input', (e) => {
-    if (e.target.dataset && e.target.dataset.cloudfield) { S.cloud[e.target.dataset.cloudfield] = e.target.value; return; }
+    if (e.target.dataset && e.target.dataset.savedfield) { S.saved[e.target.dataset.savedfield] = e.target.value; return; }
     if (e.target.dataset && e.target.dataset.imptext !== undefined) { onImportText(e.target.value, ''); return; }
     if (e.target.id === 'search') { S.search = e.target.value; const pos = e.target.selectionStart; render(); const s = $('#search'); if (s) { s.focus(); s.setSelectionRange(pos, pos); } }
   });
@@ -1771,21 +1690,11 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
     if (t.dataset.steps !== undefined) { setSteps(parseFloat(t.value)); if (S.view === 'setup') { t.value = S.zs.length; return refreshCta(); } return keep(); }
     if (t.dataset.z !== undefined) { const v = parseFloat(t.value); S.zs[+t.dataset.z] = Number.isNaN(v) ? 0 : v; const sy = window.scrollY, sc = $('.scroll'), st = sc ? sc.scrollTop : 0; render(); window.scrollTo(0, sy); const n = $('.scroll'); if (n) n.scrollTop = st; }
   });
-  window.addEventListener('hashchange', () => { if (authFromHash()) { render(); if (ST.user()) cloudDo(cloudRefresh); return; } const v = location.hash.slice(1) === 'settings' ? 'setup' : location.hash.slice(1); if (v && v !== S.view) setView(v); });
-  /* returning from the magic link: the hash carries the tokens; take them in and out of the address bar */
-  function authFromHash() {
-    if (!ST.enabled) return false;
-    const r = ST.consumeRedirect(location.hash);
-    if (!r) return false;
-    try { history.replaceState(null, '', location.pathname + location.search + '#setup'); } catch (_) {}
-    S.cloud.note = r.ok ? 'Signed in.' : r.error; S.view = 'setup';
-    return true;
-  }
-  authFromHash();
+  window.addEventListener('hashchange', () => { const v = location.hash.slice(1) === 'settings' ? 'setup' : location.hash.slice(1); if (v && v !== S.view) setView(v); });
   const h0 = location.hash.slice(1) === 'settings' ? 'setup' : location.hash.slice(1);
   if (VIEWS.some((x) => x[0] === h0)) { S.view = h0; S.ran = h0 !== 'setup'; }   // a deep link to a result view skips the setup step
   render();
-  if (ST.enabled && ST.user()) cloudDo(cloudRefresh);   // signed in from an earlier visit or just now: load the list
+  ST.probe().then((ok) => { if (ok) { S.saved.on = true; savedDo(savedRefresh); } });   // the saved-runs card appears only when the local server answers
 })();
 </script>
 

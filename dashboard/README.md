@@ -48,9 +48,9 @@ Deliberately **not** animated: the view content swapping when you change tabs (o
 
 Worst-case handling (Emil's break-ui checklist): long names clip with a tooltip, imported names over 40 characters are shortened with a warning, huge and tiny numbers scale to fit instead of truncating, emoji and CJK names get clean initials, plurals read "1 fill" / "2 fills", and no view scrolls sideways down to 320px.
 
-## Saved runs (optional Supabase database)
+## Saved runs (optional local database)
 
-With a `dashboard/config.json` (or the `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` variables at build time), the Setup page gets a **Saved runs** card: sign in with an emailed one-time link, name a setup and save it, then load or delete it later. Each user only ever sees their own runs (row-level security). Without a config nothing changes and the page stays fully static. Setup steps, schema and security notes are in [`supabase/README.md`](../supabase/README.md).
+Run `python3 server/app.py` and open http://127.0.0.1:8000/. The Setup page then has a **Saved runs** card: name a setup and save it, load it later, delete it. Runs are stored in a SQLite file on your machine (`data/forward_desk.db`). Without the server (opened as a file, or the published artifact) nothing changes and the page stays fully static. See [`server/README.md`](../server/README.md).
 
 ## Source and tests
 
@@ -58,7 +58,7 @@ With a `dashboard/config.json` (or the `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KE
 
 ```bash
 python3 dev/build_dashboard.py                                   # rebuild index.html
-python3 -m unittest discover -s tests -t .                       # engine parity, import/export, CLI, motion rules, Supabase store and push
+python3 -m unittest discover -s tests -t .                       # engine parity, import/export, CLI, motion rules, local database, server and client
 PW_CHROMIUM=<chromium path> NODE_PATH=<playwright modules> node tests/ui_smoke.js   # optional browser smoke test (Playwright)
 PW_CHROMIUM=<chromium path> NODE_PATH=<playwright modules> node tests/break_ui.js   # worst-case data at 320-1280px (add --demo for baseline data)
 ```
