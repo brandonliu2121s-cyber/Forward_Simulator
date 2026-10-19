@@ -46,6 +46,7 @@ python3 dev/verify_workbook.py --all <recalc.py>        # switches the workbook 
 
 `python/instruments.py` is the single source of truth for the instrument library: the workbook, the dashboard and the CLI are all generated from it.
 Details for each version are in its own folder's README.
+Optional persistence (saved runs and a live-price history in Supabase/Postgres): see `supabase/README.md`.
 
 ## Simplifications
 

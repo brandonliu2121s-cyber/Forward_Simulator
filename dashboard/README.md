@@ -48,13 +48,17 @@ Deliberately **not** animated: the view content swapping when you change tabs (o
 
 Worst-case handling (Emil's break-ui checklist): long names clip with a tooltip, imported names over 40 characters are shortened with a warning, huge and tiny numbers scale to fit instead of truncating, emoji and CJK names get clean initials, plurals read "1 fill" / "2 fills", and no view scrolls sideways down to 320px.
 
+## Saved runs (optional Supabase database)
+
+With a `dashboard/config.json` (or the `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` variables at build time), the Setup page gets a **Saved runs** card: sign in with an emailed one-time link, name a setup and save it, then load or delete it later. Each user only ever sees their own runs (row-level security). Without a config nothing changes and the page stays fully static. Setup steps, schema and security notes are in [`supabase/README.md`](../supabase/README.md).
+
 ## Source and tests
 
 `engine.js` (the simulation, a port of `python/reference_model.py`), `io.js` (CSV/JSON import and export) and `template.html` (the UI) are inlined into `index.html` by `dev/build_dashboard.py`; the instrument library comes from `python/instruments.py`.
 
 ```bash
 python3 dev/build_dashboard.py                                   # rebuild index.html
-python3 -m unittest discover -s tests -t .                       # engine parity, import/export, CLI, static motion rules
+python3 -m unittest discover -s tests -t .                       # engine parity, import/export, CLI, motion rules, Supabase store and push
 PW_CHROMIUM=<chromium path> NODE_PATH=<playwright modules> node tests/ui_smoke.js   # optional browser smoke test (Playwright)
 PW_CHROMIUM=<chromium path> NODE_PATH=<playwright modules> node tests/break_ui.js   # worst-case data at 320-1280px (add --demo for baseline data)
 ```

@@ -224,6 +224,57 @@ const { chromium } = require('playwright');
   await rrp.click('button.run >> nth=0'); await rrp.waitForTimeout(120);
   ok('reduced motion: no wipe or count-up, numbers are exact straight away', (await rrp.evaluate(() => getComputedStyle(document.querySelector('#series')).clipPath)) === 'none' && /1,928\.13/.test(await rrp.locator('.left .big').innerText()));
   ok('reveal: no page errors', rerrs.length === 0);
+  // ---- Saved runs (Supabase) against a mocked backend: build a page that has a config, intercept its network calls
+  {
+    const cp = require('child_process'), os = require('os'), fs = require('fs'), path = require('path');
+    const BASE = 'https://abcdefghij.supabase.co', root = path.resolve(__dirname, '..');
+    const tmp = path.join(os.tmpdir(), 'forward_desk_cloud_test.html');
+    cp.execFileSync('python3', ['-c', `import sys; sys.path.insert(0,'dev'); sys.path.insert(0,'python'); import build_dashboard as b; open(${JSON.stringify(tmp)},'w').write(b.standalone(b.fragment()))`],
+      { cwd: root, env: Object.assign({}, process.env, { SUPABASE_URL: BASE, SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test' }) });
+    const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+    const token = `${b64({ alg: 'HS256' })}.${b64({ sub: '11111111-2222-4333-8444-555555555555', email: 'me@example.com', exp: Math.floor(Date.now() / 1000) + 3600 })}.sig`;
+    const cctx = await b.newContext({ viewport: { width: 1280, height: 900 } }); const cpg = await cctx.newPage(); const cerrs = []; cpg.on('pageerror', (e) => cerrs.push(String(e)));
+    const db = { runs: [], otp: 0, authHeaders: [] };
+    await cctx.route(BASE + '/**', async (route) => {
+      const req = route.request(), u = new URL(req.url()), m = req.method(), body = req.postData() ? JSON.parse(req.postData()) : null;
+      const json = (status, o) => route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: o === undefined ? '' : JSON.stringify(o) });
+      if (m === 'OPTIONS') return route.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' } });
+      db.authHeaders.push(req.headers().authorization);
+      if (u.pathname === '/auth/v1/otp') { db.otp++; return json(200, {}); }
+      if (u.pathname === '/auth/v1/logout') return json(204);
+      if (u.pathname === '/rest/v1/runs') {
+        const id = u.searchParams.get('id');
+        if (m === 'GET') return json(200, id ? db.runs.filter((r) => 'eq.' + r.id === id) : db.runs);
+        if (m === 'POST') { const r = Object.assign({ id: '99999999-0000-4000-8000-' + String(db.runs.length).padStart(12, '0'), created_at: new Date().toISOString() }, body); db.runs.unshift(r); return json(201, [r]); }
+        if (m === 'DELETE') { const gone = db.runs.filter((r) => 'eq.' + r.id === id); db.runs = db.runs.filter((r) => !gone.includes(r)); return json(200, gone); }
+      }
+      return json(404, { message: 'no route' });
+    });
+    await cpg.goto('file://' + tmp); await cpg.waitForTimeout(300);
+    ok('saved-runs card is offered when a config is built in', (await cpg.locator('.cloud').count()) === 1 && (await cpg.locator('#cl-email').count()) === 1);
+    ok('static build has no saved-runs card', (await fp.locator('.cloud').count()) === 0);
+    await cpg.fill('#cl-email', 'me@example.com'); await cpg.press('#cl-email', 'Enter'); await cpg.waitForTimeout(300);
+    ok('emailing a sign-in link posts the otp request and tells the user', db.otp === 1 && /inbox/i.test(await cpg.locator('.cloud .note').innerText()));
+    await cpg.goto('file://' + tmp + '#access_token=' + token + '&refresh_token=rt&expires_in=3600&token_type=bearer&type=magiclink'); await cpg.waitForTimeout(500);
+    ok('magic-link return signs in and clears the tokens from the address bar', (await cpg.locator('.cloud .mail').innerText()) === 'me@example.com' && !/access_token/.test(cpg.url()));
+    ok('empty state for a new user', /Nothing saved yet/.test(await cpg.locator('.cloud').innerText()));
+    await cpg.fill('#f-spread_ticks', '9'); await cpg.fill('#cl-name', 'Wide spread'); await cpg.click('button[data-act="cloudsave"]'); await cpg.waitForTimeout(400);
+    ok('saving lists the run with its instrument', /Wide spread/.test(await cpg.locator('.runs').innerText()) && /USD\/SGD/.test(await cpg.locator('.runs').innerText()));
+    ok('stored session keeps the override and drops the bulky step rows', db.runs.length === 1 && db.runs[0].session.overrides.spread_ticks === 9 && !('steps' in db.runs[0].session));
+    ok('requests used the user token, not the publishable key', db.authHeaders.filter((h) => h && h.includes(token)).length >= 2);
+    await cpg.reload(); await cpg.waitForTimeout(500);
+    ok('after a reload the session persists and the run is listed', /Wide spread/.test(await cpg.locator('.runs').innerText()));
+    await cpg.click('button[data-act="resetover"]'); ok('inputs reset', (await cpg.inputValue('#f-spread_ticks')) === '');
+    await cpg.click('button[data-act="cloudload"]'); await cpg.waitForTimeout(400);
+    ok('loading restores the saved input', (await cpg.inputValue('#f-spread_ticks')) === '9' && /Loaded/.test(await cpg.locator('.cloud .note').innerText()));
+    await cpg.click('button[data-act="clouddel"]'); ok('first delete click only asks to confirm', db.runs.length === 1 && /Confirm/.test(await cpg.locator('button[data-act="clouddel"]').innerText()));
+    await cpg.click('button[data-act="clouddel"]'); await cpg.waitForTimeout(400);
+    ok('second click deletes', db.runs.length === 0 && /Nothing saved yet/.test(await cpg.locator('.cloud').innerText()));
+    await cpg.click('button[data-act="cloudout"]'); await cpg.waitForTimeout(300);
+    ok('sign out returns to the sign-in form', (await cpg.locator('#cl-email').count()) === 1);
+    ok('saved runs: no page errors', cerrs.length === 0);
+    fs.unlinkSync(tmp);
+  }
   console.log('page errors:', JSON.stringify(errs));
   await b.close();
 })();
