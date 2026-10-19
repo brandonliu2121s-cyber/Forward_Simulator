@@ -1,6 +1,19 @@
 # Python version
 
-Needs Python 3.8+ and nothing else (standard library only). Run these from this folder.
+The CLI needs Python 3.8+ and nothing else (standard library only). The web app needs Streamlit.
+
+## Web app (Streamlit)
+
+```
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+Sidebar inputs for every parameter, a random (seeded) or uploaded-CSV scenario, KPI tiles, charts
+(quotes vs fair forward, cumulative P&L, position vs limits, P&L attribution), the step table and a CSV download.
+It runs the same `reference_model.py` as the CLI and Excel, so the numbers match.
+
+## Command line
 
 ```
 python simulate_cli.py                               # USD/SGD, demo scenario (seed 277): step table + summary
