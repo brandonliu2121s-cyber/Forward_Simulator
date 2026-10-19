@@ -9,8 +9,10 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Sidebar inputs for every parameter, a random (seeded) or uploaded-CSV scenario, KPI tiles, charts
-(quotes vs fair forward, cumulative P&L, position vs limits, P&L attribution), the step table and a CSV download.
+Pick an instrument from the sidebar dropdown (the FX pairs and commodities in `instruments.py`, plus the editable
+Custom row). Choosing one loads that instrument's defaults, units and P&L currency; every input can still be overridden.
+Also: a random (seeded) or uploaded-CSV scenario (`action` plus `move_sigma`, or legacy `shock` in ticks), KPI tiles,
+charts (quotes vs fair forward, cumulative P&L, position vs limits, P&L attribution), the step table and a CSV download.
 It runs the same `reference_model.py` as the CLI and Excel, so the numbers match.
 
 ## Command line
