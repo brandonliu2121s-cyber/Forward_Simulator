@@ -328,6 +328,10 @@ h2, h3 { text-wrap: balance; }
 .tabs button:active, .stepper button:active, .evchip:active, .actbtn:active { transform: scale(0.97); }
 .wl-item:active, .opt:active, .pop .item:active, .pop .evt:active { transform: scale(0.98); }
 
+/* selecting a tab: the chosen pill pushes up into place (6px rise, 220ms). Pointer only: keyboard tab changes stay instant */
+.nav button.rise, .tabs button.rise { transition-duration: 220ms, 120ms, 120ms, 120ms; }
+@starting-style { .nav button.rise, .tabs button.rise { transform: translateY(6px) scale(0.94); } }
+
 /* popovers grow from their trigger corner; opened by click only (no replay when a field inside re-renders) */
 .pop { transform-origin: top right; transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out); }
 @starting-style { .pop.fresh { opacity: 0; transform: scale(0.96); } }
@@ -382,6 +386,7 @@ main.enter > :nth-child(3) { --d: 80ms; }
 @media (prefers-reduced-motion: reduce) {
   .btn:active, .pill:active, .iconbtn:active, .round:active, .who:active, .nav button:active, .seg button:active, .ranges button:active,
   .tabs button:active, .stepper button:active, .evchip:active, .actbtn:active, .wl-item:active, .opt:active, .pop .item:active, .pop .evt:active { transform: none; }
+  @starting-style { .nav button.rise, .tabs button.rise { transform: none; } }
   @starting-style { .pop.fresh, .backdrop.fresh .dlg, .tip, main.enter > * { transform: none; } .toast { transform: translate(-50%, 0); } }
   .backdrop.out .dlg { transform: none; }
   .toast.out { transform: translate(-50%, 0); }
@@ -892,7 +897,7 @@ const DATA = {"instruments":[{"name":"USD/SGD","type":"FX","unit":"USD","pnl":"S
     view: 'desk', inst: D.default, over: {}, glob: Object.assign({}, D.globals),
     zs: D.scenario.zs.slice(), acts: D.scenario.actions.slice(), seed: D.scenario.seed, seedNote: 'Excel scenario',
     range: 0, metric: 'pnl', pin: null, barMode: 'peak', barTable: false, clips: 2, search: '', pop: null,
-    intro: true, popAnim: false,
+    intro: true, popAnim: false, tabAnim: false,
   };
   let C = null;
 
@@ -914,7 +919,7 @@ const DATA = {"instruments":[{"name":"USD/SGD","type":"FX","unit":"USD","pnl":"S
 
   // ------------------------------------------------------------------ header
   function header() {
-    const nav = VIEWS.map(([k, l]) => `<button data-act="view" data-v="${k}" ${S.view === k ? 'aria-current="page"' : ''}>${l}</button>`).join('');
+    const nav = VIEWS.map(([k, l]) => `<button data-act="view" data-v="${k}" ${S.view === k ? 'aria-current="page"' + (S.tabAnim ? ' class="rise"' : '') : ''}>${l}</button>`).join('');
     const events = C.rows.filter((r) => r.trigger);
     const bell = `<div class="popwrap"><button class="round" data-act="pop" data-id="bell" aria-label="Limit alerts" aria-expanded="${S.pop === 'bell'}">${ico('bell')}${events.length ? '<span class="dot"></span>' : ''}</button>${
       S.pop === 'bell' ? `<div class="pop${S.popAnim ? ' fresh' : ''}"><h4>Limit events</h4>${events.length ? events.slice(0, 8).map((r) => `<button class="evt" data-act="pinstep" data-i="${r.step}"><i style="background:${r.loss_breach ? 'var(--orange)' : 'var(--yellow)'}"></i><span><b>Step ${r.step}: ${r.trigger.toLowerCase()}</b><br><span class="muted">${r.hedge > 0 ? 'Bought' : 'Sold'} ${compact(Math.abs(r.hedge))} ${esc(C.inst.unit)} with the street</span></span></button>`).join('') : '<div class="empty">No limit events in this run.</div>'}</div>` : ''}</div>`;
@@ -1275,9 +1280,9 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
         <details class="fmt"><summary>Accepted formats</summary><pre>${esc(CHEAT)}</pre></details>`;
     }
     el.innerHTML = `<div class="backdrop${DL.fresh ? ' fresh' : ''}" data-act="dlgclose"><div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-title"><div class="card-head"><h2 id="dlg-title">Import / Export</h2><span class="sp"></span>
-      <span class="tabs" role="group" aria-label="Mode"><button data-act="dlgtab" data-k="export" aria-pressed="${exp}">Export</button><button data-act="dlgtab" data-k="import" aria-pressed="${!exp}">Import</button></span>
+      <span class="tabs" role="group" aria-label="Mode"><button data-act="dlgtab" data-k="export" aria-pressed="${exp}"${exp && DL.rise ? ' class="rise"' : ''}>Export</button><button data-act="dlgtab" data-k="import" aria-pressed="${!exp}"${!exp && DL.rise ? ' class="rise"' : ''}>Import</button></span>
       <button class="iconbtn x" data-act="dlgclose" aria-label="Close">${ico('x')}</button></div>${body}</div></div>`;
-    DL.fresh = false;
+    DL.fresh = false; DL.rise = false;
     if (exp) {
       $('#exp-text').value = DL.bundle.text;
       $('#exp-meta').textContent = `${plural(DL.bundle.text.split('\n').length - 1, 'line', 'lines')}, ${(DL.bundle.text.length / 1024).toFixed(1)} KB`;
@@ -1385,7 +1390,7 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
       return renderDialog();
     }
     if (a === 'dlgclose') return closeDialog(e.detail === 0);
-    if (a === 'dlgtab') { DL.tab = t.dataset.k; DL.text = ''; DL.parsed = null; return renderDialog(); }
+    if (a === 'dlgtab') { DL.rise = e.detail !== 0 && DL.tab !== t.dataset.k; DL.tab = t.dataset.k; DL.text = ''; DL.parsed = null; return renderDialog(); }
     if (a === 'dlgwhat') { DL.what = t.dataset.k; if (DL.what === 'session') DL.fmt = 'json'; return renderDialog(); }
     if (a === 'dlgfmt') { DL.fmt = t.dataset.k; return renderDialog(); }
     if (a === 'dlgdl') return download(DL.bundle);
@@ -1405,7 +1410,7 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
     compute();
     const v = { desk: viewDesk, pricing: viewPricing, instruments: viewInstruments, activity: viewActivity, settings: viewSettings }[S.view]();
     $('#app').innerHTML = header() + '<main class="' + (S.intro ? 'enter' : '') + '" style="display:grid;gap:12px">' + v + '</main><div class="foot">Illustrative levels, simulated clients and a simplified model. Educational use only, not trading advice.</div>';
-    S.intro = false; S.popAnim = false;
+    S.intro = false; S.popAnim = false; S.tabAnim = false;
     if (ro) ro.disconnect();
     if (S.view === 'desk') {
       drawHero();
@@ -1431,7 +1436,7 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
     if (!t) { if (S.pop && !e.target.closest('.pop')) { S.pop = null; render(); } return; }
     const a = t.dataset.act;
     if (a === 'data' || a.startsWith('dlg')) return dialogClick(a, t, e);
-    if (a === 'view') return setView(t.dataset.v);
+    if (a === 'view') { S.tabAnim = e.detail !== 0 && t.dataset.v !== S.view; return setView(t.dataset.v); }   // keyboard-initiated: no animation
     if (a === 'pop') { S.pop = S.pop === t.dataset.id ? null : t.dataset.id; S.popAnim = e.detail !== 0; return render(); }   // keyboard-initiated: no animation
     if (a === 'inst') { S.inst = t.dataset.name; S.over = {}; S.pin = null; S.pop = null; if (t.dataset.go) S.view = t.dataset.go; render(); return; }
     if (a === 'search') { S.view = 'instruments'; S.pop = null; render(); const s = $('#search'); if (s) s.focus(); return; }

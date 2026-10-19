@@ -168,6 +168,14 @@ const { chromium } = require('playwright');
   const ops = await intro.evaluate(() => window.__ops);
   ok('first-load stagger actually runs: card fades 0 -> 1 over the first frames', Math.min(...ops) < 0.9 && ops[ops.length - 1] === 1);
   await fresh.keyboard.press('Escape');   // the toast test above left the dialog open
+  // selecting a nav tab with the pointer: the new pill starts lower/smaller and pushes up to rest
+  await fresh.evaluate(() => { window.__tf = []; const iv = setInterval(() => { const n = document.querySelector('.nav button[aria-current="page"]'); if (n) window.__tf.push(getComputedStyle(n).transform); }, 16); setTimeout(() => clearInterval(iv), 450); });
+  await fresh.click('.nav button:not([aria-current])'); await fresh.waitForTimeout(500);
+  const tf = await fresh.evaluate(() => window.__tf);
+  ok('tab select (pointer): pill starts displaced (translateY > 0) and settles at rest', tf.some((t) => t !== 'none' && /matrix\(([^)]*)\)/.test(t) && +t.match(/matrix\(([^)]*)\)/)[1].split(',')[5] > 1) && (tf[tf.length - 1] === 'none' || tf[tf.length - 1] === 'matrix(1, 0, 0, 1, 0, 0)'));
+  await fresh.focus('.nav button:not([aria-current])'); const navBefore = await fresh.evaluate(() => document.querySelector('.nav button[aria-current="page"]').textContent);
+  await fresh.keyboard.press('Enter'); await fresh.waitForTimeout(30);
+  ok('tab select (keyboard): no rise class, instant', (await fresh.locator('.nav button.rise').count()) === 0 && (await fresh.evaluate(() => document.querySelector('.nav button[aria-current="page"]').textContent)) !== navBefore);
   const sp = sample(fresh, '.dlg', 450); await fresh.click('button[aria-label="Import or export data"]'); const dop = await sp;
   ok('dialog entrance actually runs: opacity rises from below 1 to exactly 1 within 300ms', Math.min(...dop) < 0.95 && dop[dop.length - 1] === 1);
   await fresh.keyboard.press('Escape');
