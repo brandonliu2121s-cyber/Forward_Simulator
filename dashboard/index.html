@@ -14,9 +14,9 @@
   --bezel: #3b3b3b;
   --device: #0a0a0a;
   --card: #121212;
-  --card-line: #232323;
+  --card-line: rgba(255, 255, 255, 0.075);
   --tile: #1b1b1b;
-  --tile-line: #272727;
+  --tile-line: rgba(255, 255, 255, 0.09);
   --raise: #262626;
   --ink: #f5f5f3;
   --ink-2: #a8a8a4;
@@ -29,6 +29,8 @@
   --coral: #ff8566;
   --coral-ink: #2a0d05;
   --line-soft: rgba(255, 255, 255, 0.14);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --font: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
@@ -75,12 +77,12 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
   border: 1px solid var(--card-line); min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .nav::-webkit-scrollbar { display: none; }
 .nav button { height: 38px; padding: 0 18px; border-radius: 999px; color: var(--ink-2); font-weight: 500; white-space: nowrap; }
-.nav button:hover { color: var(--ink); }
+@media (hover: hover) and (pointer: fine) { .nav button:hover { color: var(--ink); } }
 .nav button[aria-current="page"] { background: #fff; color: #111; font-weight: 600; }
 .spacer { flex: 1; }
 .round { width: 48px; height: 48px; border-radius: 999px; background: var(--card); border: 1px solid var(--card-line);
   display: grid; place-items: center; position: relative; flex: none; }
-.round:hover, .iconbtn:hover { background: var(--raise); }
+@media (hover: hover) and (pointer: fine) { .round:hover, .iconbtn:hover { background: var(--raise); } }
 .round svg { width: 18px; height: 18px; }
 .round .dot { position: absolute; top: 12px; right: 13px; width: 7px; height: 7px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 0 2px var(--card); }
 .who { display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 12px 0 6px; border-radius: 999px; background: var(--card);
@@ -91,15 +93,15 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .badge.lg { width: 46px; height: 46px; font-size: 14px; }
 .popwrap { position: relative; }
 .pop { position: absolute; z-index: 30; top: calc(100% + 8px); right: 0; min-width: 240px; max-width: min(340px, calc(100vw - 32px)); background: #1a1a1a;
-  border: 1px solid #333; border-radius: 18px; padding: 8px; box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6); }
+  border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 18px; padding: 8px; box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6); }
 .pop h4 { margin: 8px 10px 6px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
 .pop .item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border-radius: 12px; text-align: left; }
-.pop .item:hover { background: var(--raise); }
+@media (hover: hover) and (pointer: fine) { .pop .item:hover { background: var(--raise); } }
 .pop .item[aria-current="true"] { background: var(--raise); }
 .pop .item small { color: var(--ink-3); margin-left: auto; }
 .pop .empty { padding: 14px 12px; color: var(--ink-2); }
 .pop .evt { display: flex; gap: 10px; padding: 9px 10px; border-radius: 12px; width: 100%; text-align: left; align-items: flex-start; }
-.pop .evt:hover { background: var(--raise); }
+@media (hover: hover) and (pointer: fine) { .pop .evt:hover { background: var(--raise); } }
 .pop .evt i { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex: none; }
 
 /* ---------- shared bits ---------- */
@@ -110,7 +112,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .iconbtn svg { width: 16px; height: 16px; }
 .pill { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--tile-line);
   background: var(--tile); font-weight: 500; white-space: nowrap; }
-.pill:hover { background: var(--raise); }
+@media (hover: hover) and (pointer: fine) { .pill:hover { background: var(--raise); } }
 .pill svg { width: 13px; height: 13px; color: var(--ink-2); }
 .chip { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 10px; border-radius: 999px; font-weight: 700; font-size: 12px; white-space: nowrap; }
 .chip svg { width: 12px; height: 12px; }
@@ -118,7 +120,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .chip.down { background: var(--coral); color: var(--coral-ink); }
 .chip.light { background: #fff; color: #161616; }
 .eyebrow { color: var(--ink-2); font-size: 12px; font-weight: 500; }
-.big { font-size: clamp(34px, 4.2vw, 52px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.05; }
+.big { --cap: clamp(34px, 4.2vw, 52px); font-size: max(20px, min(var(--cap), calc(100cqw / ((var(--len, 9) + 3) * 0.56)))); overflow-wrap: anywhere; font-weight: 600; letter-spacing: -0.03em; line-height: 1.05; }
 .big .ccy { font-size: 0.4em; font-weight: 600; letter-spacing: 0; color: inherit; opacity: 0.7; margin-right: 8px; vertical-align: 0.55em; }
 
 /* ---------- desk: performance card ---------- */
@@ -131,10 +133,10 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .perf { display: grid; grid-template-columns: minmax(250px, 0.78fr) minmax(0, 1.9fr); gap: 14px; align-items: stretch; }
 .left { display: grid; grid-template-rows: auto 1fr; gap: 18px; padding: 8px 4px 0 6px; min-width: 0; }
 .left .big { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
-.kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: end; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 10px; align-content: end; }
 .kpi .lab { display: flex; align-items: center; gap: 7px; color: var(--ink-2); font-size: 12px; margin-bottom: 8px; }
 .kpi .lab i { width: 2px; height: 11px; border-radius: 2px; display: block; }
-.kpi .val { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; }
+.kpi .val { font-size: max(14px, min(19px, calc(100cqw / ((var(--len, 8) + 1) * 0.62)))); font-weight: 600; letter-spacing: -0.02em; overflow-wrap: anywhere; }
 .kpi .sub { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
 .hero { background: linear-gradient(180deg, #e8552f 0%, var(--orange-deep) 100%); border-radius: 22px; padding: 16px 18px 12px; color: #fff; min-width: 0; display: flex; flex-direction: column; }
 .hero-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -146,11 +148,11 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .ranges button { height: 24px; padding: 0 8px; border-radius: 8px; font-size: 11.5px; font-weight: 600; color: rgba(255, 255, 255, 0.78); }
 .ranges button[aria-pressed="true"] { color: #fff; text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 2px; }
 .hero-val { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 8px 0 4px; }
-.hero-val .big { font-size: clamp(32px, 3.6vw, 44px); }
+.hero-val .big { --cap: clamp(32px, 3.6vw, 44px); }
 .plot { position: relative; flex: 1; min-height: 250px; margin-top: 4px; touch-action: pan-y; }
 .plot svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .plot .hit { cursor: crosshair; }
-.tip { position: absolute; z-index: 5; min-width: 176px; padding: 10px 12px; background: #161616; color: #fff; border: 1px solid #333; border-radius: 16px;
+.tip { position: absolute; z-index: 5; min-width: 176px; padding: 10px 12px; background: #161616; color: #fff; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 16px;
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.5); pointer-events: none; font-size: 12px; }
 .tip[hidden] { display: none; }
 .tip .r { display: flex; justify-content: space-between; gap: 14px; padding: 2px 0; }
@@ -167,7 +169,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .wl { display: flex; flex: 1; min-width: 0; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; gap: 6px; }
 .wl::-webkit-scrollbar { display: none; }
 .wl-item { display: flex; align-items: center; gap: 12px; padding: 8px 18px 8px 10px; border-radius: 18px; flex: none; scroll-snap-align: start; border: 1px solid transparent; text-align: left; min-width: 230px; }
-.wl-item:hover { background: #181818; }
+@media (hover: hover) and (pointer: fine) { .wl-item:hover { background: #181818; } }
 .wl-item[aria-current="true"] { background: #1a1a1a; border-color: #2c2c2c; }
 .wl-item .nm { color: var(--ink-2); font-size: 12px; }
 .wl-item .px { font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
@@ -184,7 +186,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
 .barcol { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .bar { flex: 1; position: relative; border-radius: 16px; overflow: hidden; min-height: 180px;
   background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.055) 0 1px, transparent 1px 5px), #181818; }
-.bar .fill { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 14px; padding: 9px 10px; color: #111; font-weight: 700; font-size: 13px; transition: height 0.5s ease; }
+.bar .fill { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 14px; padding: 9px 10px; color: #111; font-weight: 700; font-size: 13px; }
 .bar .fill.hatch { background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0 1px, transparent 1px 4px), #5b5b5b; color: #fff; }
 .bar .above { position: absolute; left: 10px; font-weight: 700; font-size: 13px; color: var(--ink); }
 .barcol .cap { text-align: center; color: var(--ink-2); font-size: 12px; }
@@ -224,7 +226,7 @@ table.t { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-
 .t tr.loss td { background: rgba(228, 80, 43, 0.2); }
 .t tr.halt td { color: var(--ink-3); background: #0e0e0e; }
 .t tr.clickable { cursor: pointer; }
-.t tr.clickable:hover td { background: #1a1a1a; }
+@media (hover: hover) and (pointer: fine) { .t tr.clickable:hover td { background: #1a1a1a; } }
 .t tr.sel td { background: #1d1d1d; }
 .t .neg { color: var(--coral); }
 .t .pos { color: var(--mint); }
@@ -236,10 +238,10 @@ table.t { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-
 .field input.ov { border-color: var(--orange); }
 .field label { display: block; color: var(--ink-2); font-size: 12px; margin-bottom: 6px; }
 .field small { display: block; color: var(--ink-3); margin-top: 4px; font-size: 11px; }
-.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
-.cols { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: 14px; }
+.cols { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); }
 .btn { height: 38px; padding: 0 16px; border-radius: 12px; font-weight: 600; border: 1px solid var(--tile-line); background: var(--tile); }
-.btn:hover { background: var(--raise); }
+@media (hover: hover) and (pointer: fine) { .btn:hover { background: var(--raise); } }
 .btn.primary { background: #fff; color: #111; border-color: #fff; }
 .btn.orange { background: var(--orange); border-color: var(--orange); color: #fff; }
 .search { max-width: 280px; height: 38px; }
@@ -252,7 +254,7 @@ table.t { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-
 .recipe tr.total td { border-bottom: 0; font-size: 15px; font-weight: 700; color: var(--yellow); }
 .quote2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
 .qbox { background: rgba(0, 0, 0, 0.22); border-radius: 16px; padding: 14px 16px; min-width: 0; }
-.qbox .big { font-size: clamp(26px, 3vw, 38px); }
+.qbox .big { --cap: clamp(26px, 3vw, 38px); }
 .qbox .eyebrow { color: rgba(255, 255, 255, 0.85); }
 .ubar { display: inline-block; width: 90px; height: 8px; border-radius: 4px; background: #222; position: relative; vertical-align: middle; }
 .ubar i { position: absolute; top: 0; bottom: 0; background: var(--orange); border-radius: 4px; }
@@ -264,13 +266,13 @@ table.t { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-
 /* ---------- data dialog (import / export) ---------- */
 .backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.68); display: grid; place-items: center;
   padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
-.dlg { width: min(780px, 100%); max-height: 100%; overflow: auto; background: #141414; border: 1px solid #2e2e2e; border-radius: 26px; padding: 20px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7); display: grid; gap: 14px; }
+.dlg { width: min(780px, 100%); max-height: 100%; overflow: auto; background: #141414; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 26px; padding: 20px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7); display: grid; gap: 14px; }
 .dlg h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .tabs { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--tile); border: 1px solid var(--tile-line); }
 .tabs button { height: 30px; padding: 0 16px; border-radius: 999px; color: var(--ink-2); font-weight: 600; }
 .tabs button[aria-pressed="true"] { background: #fff; color: #111; }
 .tabs button:disabled { opacity: 0.35; cursor: not-allowed; }
-.opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr)); gap: 8px; }
 .opt { text-align: left; padding: 12px 14px; border-radius: 16px; background: var(--tile); border: 1px solid var(--tile-line); display: grid; gap: 4px; }
 .opt span { color: var(--ink-2); font-size: 12px; line-height: 1.4; }
 .opt[aria-checked="true"] { border-color: var(--orange); background: #211510; }
@@ -295,12 +297,70 @@ table.t { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-
 .toast[hidden] { display: none; }
 .iconbtn.x { font-size: 18px; line-height: 1; }
 
+/* ---------- worst-case data: long names, huge numbers, many instruments ---------- */
+.left, .hero, .qbox, .tile.kpi { container-type: inline-size; }
+.popwrap { min-width: 0; }
+.who { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+.who .nm-txt { min-width: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.pop { max-height: min(70vh, 540px); overflow-y: auto; overscroll-behavior: contain; }
+.pop .item > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wl-item { max-width: 340px; }
+.wl-item .nm { display: block; max-width: 12em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dlg-actions .btn { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.opt, .fmtrow { min-width: 0; }
+/* a single unbreakable word must not stretch a grid track (and with it the whole page) */
+.device, #app > main, .dlg { grid-template-columns: minmax(0, 1fr); }
+.page-head > div { min-width: 0; }
+.page-head h2, .page-head p, .card-head h2, .card h3, .dlg h2 { overflow-wrap: anywhere; }
+
+/* ---------- motion ----------
+   Rules (Emil Kowalski's design-engineering standards): strong custom curves, UI under 300ms, transform + opacity only,
+   transitions (interruptible) rather than keyframes, press feedback, origin-aware popovers, modals stay centred,
+   exits faster than enters. Deliberately NOT animated: the chart and bars (data being read), view switching and anything
+   triggered from the keyboard (used constantly). */
+h2, h3 { text-wrap: balance; }
+.insight .body p { text-wrap: pretty; }
+.btn, .pill, .iconbtn, .round, .who, .nav button, .seg button, .ranges button, .tabs button, .stepper button, .evchip, .actbtn,
+.wl-item, .opt, .pop .item, .pop .evt {
+  transition: transform 160ms var(--ease-out), background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.btn:active, .pill:active, .iconbtn:active, .round:active, .who:active, .nav button:active, .seg button:active, .ranges button:active,
+.tabs button:active, .stepper button:active, .evchip:active, .actbtn:active { transform: scale(0.97); }
+.wl-item:active, .opt:active, .pop .item:active, .pop .evt:active { transform: scale(0.98); }
+
+/* popovers grow from their trigger corner; opened by click only (no replay when a field inside re-renders) */
+.pop { transform-origin: top right; transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out); }
+@starting-style { .pop.fresh { opacity: 0; transform: scale(0.96); } }
+
+/* modal: centred origin, enters in 200ms, leaves in 140ms; Escape closes instantly (keyboard-initiated) */
+.backdrop { transition: opacity 200ms var(--ease-out); }
+.dlg { transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out); }
+@starting-style { .backdrop.fresh { opacity: 0; } .backdrop.fresh .dlg { opacity: 0; transform: scale(0.96); } }
+.backdrop.out { opacity: 0; transition-duration: 140ms; }
+.backdrop.out .dlg { opacity: 0; transform: scale(0.98); transition-duration: 140ms; }
+
+/* toast leaves by the edge it came from */
+.toast { transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out); }
+@starting-style { .toast { opacity: 0; transform: translate(-50%, 100%); } }
+.toast.out { opacity: 0; transform: translate(-50%, 60%); transition-duration: 160ms; }
+
+/* chart tooltip: tiny fade-in when the pointer first enters; follows the pointer instantly after that */
+.tip { transform-origin: left center; transition: opacity 125ms var(--ease-out), transform 125ms var(--ease-out); }
+@starting-style { .tip { opacity: 0; transform: scale(0.97); } }
+
+/* first load only: cards settle in with a short stagger (decorative, never blocks input) */
+main.enter > * { transition: opacity 260ms var(--ease-out) var(--d, 0ms), transform 260ms var(--ease-out) var(--d, 0ms); }
+main.enter > :nth-child(2) { --d: 40ms; }
+main.enter > :nth-child(3) { --d: 80ms; }
+@starting-style { main.enter > * { opacity: 0; transform: translateY(6px); } }
+
 @media (max-width: 480px) {
   .dlg { padding: 16px; border-radius: 22px; }
-  .dlg .card-head { flex-wrap: nowrap; gap: 8px; }
-  .dlg h2 { font-size: 16px; white-space: nowrap; }
+  .dlg .card-head { gap: 8px; }
+  .dlg h2 { font-size: 16px; }
   .tabs button { padding: 0 11px; }
 }
+@media (min-width: 381px) and (max-width: 480px) { .dlg .card-head { flex-wrap: nowrap; } .dlg h2 { white-space: nowrap; } }
 @media (max-width: 1080px) {
   .perf { grid-template-columns: 1fr; }
   .bottom { grid-template-columns: 1fr 1fr; }
@@ -319,10 +379,16 @@ table.t { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-
   .ranges { margin-left: 0; }
   .quote2 { grid-template-columns: 1fr; }
 }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+@media (prefers-reduced-motion: reduce) {
+  .btn:active, .pill:active, .iconbtn:active, .round:active, .who:active, .nav button:active, .seg button:active, .ranges button:active,
+  .tabs button:active, .stepper button:active, .evchip:active, .actbtn:active, .wl-item:active, .opt:active, .pop .item:active, .pop .evt:active { transform: none; }
+  @starting-style { .pop.fresh, .backdrop.fresh .dlg, .tip, main.enter > * { transform: none; } .toast { transform: translate(-50%, 0); } }
+  .backdrop.out .dlg { transform: none; }
+  .toast.out { transform: translate(-50%, 0); }
+}
 </style>
 
-<div class="stage"><div class="device" id="app" aria-live="polite"></div></div>
+<div class="stage"><div class="device" id="app"></div></div>
 <div id="dlg"></div>
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
@@ -545,12 +611,15 @@ const IO = (function () {
     const n = Number(s);
     return pct ? n / 100 : n;
   }
-  const cleanName = (s) => String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 40);
-  const cleanTxt = (s, n) => unguard(String(s == null ? '' : s)).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, n);
+  const MAX_NAME = 40;
+  const clip = (s, n) => Array.from(s).slice(0, n).join('');            // by code point, so an emoji is never cut in half
+  const cleanFull = (s) => String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]/g, '').trim();
+  const cleanName = (s) => clip(cleanFull(s), MAX_NAME);
+  const cleanTxt = (s, n) => clip(cleanFull(unguard(String(s == null ? '' : s))), n);
 
   /** Validate one instrument definition (flat object with canonical keys). Returns {ok:{...}} or {error:'...'} */
   function buildInstrument(raw, label) {
-    const name = cleanName(unguard(raw.name));
+    const full = cleanFull(unguard(raw.name)), name = clip(full, MAX_NAME), shortened = Array.from(full).length > MAX_NAME;
     const at = label || name || '(unnamed)';
     if (!name) return { error: `${at}: missing name` };
     if (['__proto__', 'constructor', 'prototype'].includes(name)) return { error: `${at}: reserved name` };
@@ -572,7 +641,7 @@ const IO = (function () {
     for (const k of ['spread_ticks', 'max_skew_ticks', 'hedge_cost_ticks', 'step_vol_ticks']) if (params[k] < 0) return { error: `${name}: ${k} cannot be negative` };
     for (const k of RATE_KEYS) if (!(params[k] > -0.5 && params[k] < 1)) return { error: `${name}: ${k} = ${params[k]} is outside -50%..100%. Use a fraction (0.04) or a percent sign (4%).` };
     if (params.tenor_days > 3650) return { error: `${name}: tenor_days is unreasonably large` };
-    return { ok: { name, type, unit, pnl, note: cleanTxt(raw.note, 240), params } };
+    return { ok: { name, type, unit, pnl, note: cleanTxt(raw.note, 240), params }, shortened };
   }
 
   // ------------------------------------------------------------------ scenario parsing
@@ -632,6 +701,7 @@ const IO = (function () {
     recs.forEach((r, i) => {
       const res = buildInstrument(r, `Row ${i + 1}`);
       if (res.error) { errors.push(res.error); return; }
+      if (res.shortened) warnings.push(`${res.ok.name}: the name was longer than ${MAX_NAME} characters and was shortened.`);
       if (own(seen, res.ok.name)) { warnings.push(`${res.ok.name}: appears more than once, the last row wins.`); list[seen[res.ok.name]] = res.ok; return; }
       seen[res.ok.name] = list.length; list.push(res.ok);
     });
@@ -767,7 +837,23 @@ const DATA = {"instruments":[{"name":"USD/SGD","type":"FX","unit":"USD","pnl":"S
     const t = (v, u) => s + (+v.toFixed(2)).toString() + u;
     return a >= 1e9 ? t(a / 1e9, 'B') : a >= 1e6 ? t(a / 1e6, 'M') : a >= 1e3 ? t(a / 1e3, 'K') : s + (+a.toFixed(2)).toString();
   };
-  const decOf = (tick) => (String(tick).split('.')[1] || '').length;
+  /* decimals of a tick size; String(1e-8) is '1e-8', so handle exponent form (a naive split('.') said 0 decimals) */
+  const decOf = (tick) => {
+    const str = String(Number(tick)), m = /^\d+(?:\.(\d+))?e-(\d+)$/.exec(str);
+    return Math.min(12, m ? (m[1] ? m[1].length : 0) + +m[2] : (str.split('.')[1] || '').length);
+  };
+  const PR = new Intl.PluralRules('en');
+  const plural = (n, one, many) => `${n} ${PR.select(n) === 'one' ? one : many}`;
+  const SEG = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
+  const graphemes = (x) => (SEG ? [...SEG.segment(x)].map((g) => g.segment) : Array.from(x));
+  const LEAD = /[\p{L}\p{N}]|\p{Extended_Pictographic}/u;
+  /* badge text from grapheme clusters (emoji and CJK safe), first letters of the first two words */
+  const initials = (name) => {
+    const words = String(name).split(/[\s/_\-]+/).filter(Boolean);
+    const picks = words.map((w) => graphemes(w).find((c) => LEAD.test(c)) || '').filter(Boolean);
+    const t = picks.length >= 2 ? picks[0] + picks[1] : graphemes(words.join('')).filter((c) => LEAD.test(c)).slice(0, 2).join('');
+    return (t || '?').toUpperCase();
+  };
   const pnlDec = (n) => (Math.abs(n) >= 100000 ? 0 : 2);
 
   const BADGE = {
@@ -777,7 +863,7 @@ const DATA = {"instruments":[{"name":"USD/SGD","type":"FX","unit":"USD","pnl":"S
     'WTI Crude': ['Oil', '#2b2b2b', '#f6cf4f'], 'Brent Crude': ['Br', '#17365f', '#ffffff'], 'Copper': ['Cu', '#b8693a', '#fff'], 'Natural Gas': ['Gas', '#2f8bff', '#fff'],
   };
   const badge = (name, cls = '') => {
-    const b = Object.prototype.hasOwnProperty.call(BADGE, name) ? BADGE[name] : [String(name).slice(0, 2).toUpperCase(), '#444', '#fff'];
+    const b = Object.prototype.hasOwnProperty.call(BADGE, name) ? BADGE[name] : [initials(name), '#444', '#fff'];
     return `<span class="badge ${cls}" style="background:${b[1]};color:${b[2]}${b[1] === '#2b2b2b' ? ';box-shadow:inset 0 0 0 1px #444' : ''}">${esc(b[0])}</span>`;
   };
 
@@ -806,6 +892,7 @@ const DATA = {"instruments":[{"name":"USD/SGD","type":"FX","unit":"USD","pnl":"S
     view: 'desk', inst: D.default, over: {}, glob: Object.assign({}, D.globals),
     zs: D.scenario.zs.slice(), acts: D.scenario.actions.slice(), seed: D.scenario.seed, seedNote: 'Excel scenario',
     range: 0, metric: 'pnl', pin: null, barMode: 'peak', barTable: false, clips: 2, search: '', pop: null,
+    intro: true, popAnim: false,
   };
   let C = null;
 
@@ -830,11 +917,11 @@ const DATA = {"instruments":[{"name":"USD/SGD","type":"FX","unit":"USD","pnl":"S
     const nav = VIEWS.map(([k, l]) => `<button data-act="view" data-v="${k}" ${S.view === k ? 'aria-current="page"' : ''}>${l}</button>`).join('');
     const events = C.rows.filter((r) => r.trigger);
     const bell = `<div class="popwrap"><button class="round" data-act="pop" data-id="bell" aria-label="Limit alerts" aria-expanded="${S.pop === 'bell'}">${ico('bell')}${events.length ? '<span class="dot"></span>' : ''}</button>${
-      S.pop === 'bell' ? `<div class="pop"><h4>Limit events</h4>${events.length ? events.slice(0, 8).map((r) => `<button class="evt" data-act="pinstep" data-i="${r.step}"><i style="background:${r.loss_breach ? 'var(--orange)' : 'var(--yellow)'}"></i><span><b>Step ${r.step}: ${r.trigger.toLowerCase()}</b><br><span class="muted">${r.hedge > 0 ? 'Bought' : 'Sold'} ${compact(Math.abs(r.hedge))} ${esc(C.inst.unit)} with the street</span></span></button>`).join('') : '<div class="empty">No limit events in this run.</div>'}</div>` : ''}</div>`;
+      S.pop === 'bell' ? `<div class="pop${S.popAnim ? ' fresh' : ''}"><h4>Limit events</h4>${events.length ? events.slice(0, 8).map((r) => `<button class="evt" data-act="pinstep" data-i="${r.step}"><i style="background:${r.loss_breach ? 'var(--orange)' : 'var(--yellow)'}"></i><span><b>Step ${r.step}: ${r.trigger.toLowerCase()}</b><br><span class="muted">${r.hedge > 0 ? 'Bought' : 'Sold'} ${compact(Math.abs(r.hedge))} ${esc(C.inst.unit)} with the street</span></span></button>`).join('') : '<div class="empty">No limit events in this run.</div>'}</div>` : ''}</div>`;
     const fx = D.instruments.filter((i) => i.type === 'FX'), cm = D.instruments.filter((i) => i.type !== 'FX');
-    const li = (i) => `<button class="item" data-act="inst" data-name="${esc(i.name)}" ${i.name === S.inst ? 'aria-current="true"' : ''}>${badge(i.name, 'sm')}<span>${esc(i.name)}</span><small>${esc(i.pnl)}</small></button>`;
-    const who = `<div class="popwrap"><button class="who" data-act="pop" data-id="inst" aria-label="Choose instrument" aria-expanded="${S.pop === 'inst'}">${badge(S.inst)}<span style="font-weight:700">${esc(S.inst)}</span>${ico('down')}</button>${
-      S.pop === 'inst' ? `<div class="pop"><h4>FX pairs</h4>${fx.map(li).join('')}<h4>Commodities</h4>${cm.map(li).join('')}</div>` : ''}</div>`;
+    const li = (i) => `<button class="item" data-act="inst" data-name="${esc(i.name)}" ${i.name === S.inst ? 'aria-current="true"' : ''}>${badge(i.name, 'sm')}<span title="${esc(i.name)}">${esc(i.name)}</span><small>${esc(i.pnl)}</small></button>`;
+    const who = `<div class="popwrap"><button class="who" data-act="pop" data-id="inst" aria-label="Choose instrument" aria-expanded="${S.pop === 'inst'}">${badge(S.inst)}<span class="nm-txt" title="${esc(S.inst)}">${esc(S.inst)}</span>${ico('down')}</button>${
+      S.pop === 'inst' ? `<div class="pop${S.popAnim ? ' fresh' : ''}"><h4>FX pairs</h4>${fx.map(li).join('')}<h4>Commodities</h4>${cm.map(li).join('')}</div>` : ''}</div>`;
     return `<header class="top"><div class="brand">${ico('logo')}Forward Desk</div><nav class="nav" aria-label="Views">${nav}</nav><div class="spacer"></div>
       <button class="round" data-act="search" aria-label="Search instruments">${ico('search')}</button>
       <button class="round" data-act="data" aria-label="Import or export data" title="Import / export">${ico('swap')}</button>${bell}${who}</header>`;
@@ -909,9 +996,9 @@ const DATA = {"instruments":[{"name":"USD/SGD","type":"FX","unit":"USD","pnl":"S
   function insightsCard() {
     const s = C.sum, p = C.p, u = esc(C.inst.unit), c = esc(C.inst.pnl), dec = pnlDec(s.capture);
     const ev = C.rows.filter((r) => r.trigger);
-    const l1 = `Over <b>${s.n}</b> steps the desk earned <b>${money(s.capture, dec)} ${c}</b> of spread on <b>${s.fills}</b> client fills, against <b>${signed(s.mtm, pnlDec(s.mtm))} ${c}</b> from moves in inventory.`;
+    const l1 = `Over <b>${s.n}</b> ${s.n === 1 ? 'step' : 'steps'} the desk earned <b>${money(s.capture, dec)} ${c}</b> of spread on <b>${s.fills}</b> client ${s.fills === 1 ? 'fill' : 'fills'}, against <b>${signed(s.mtm, pnlDec(s.mtm))} ${c}</b> from moves in inventory.`;
     const l2 = `Inventory peaked at <b>${compact(s.peakAfterClient)} ${u}</b> (<b>${pct(s.peakUtil)}</b> of limit); skew moved quotes by up to <b>${nf(s.maxSkewUsed * p.max_skew_ticks, 1)}</b> ticks.`;
-    const l3 = s.lossStep ? `The loss limit was hit at <b>step ${s.lossStep}</b>${s.halted ? `, flattening the book and halting quoting for <b>${s.n - s.lossStep}</b> steps` : ''}${s.posHedges ? `, after <b>${s.posHedges}</b> position-limit hedge${s.posHedges > 1 ? 's' : ''}` : ''}.`
+    const l3 = s.lossStep ? `The loss limit was hit at <b>step ${s.lossStep}</b>${s.halted ? `, flattening the book and halting quoting for <b>${s.n - s.lossStep}</b> ${s.n - s.lossStep === 1 ? 'step' : 'steps'}` : ''}${s.posHedges ? `, after <b>${s.posHedges}</b> position-limit hedge${s.posHedges > 1 ? 's' : ''}` : ''}.`
       : s.posHedges ? `<b>${s.posHedges}</b> position-limit hedge${s.posHedges > 1 ? 's' : ''} traded <b>${compact(s.hedgeVolume)} ${u}</b> with the street; the loss limit held.` : 'No position or loss limit was breached.';
     const chips = ev.slice(0, 5).map((r) => `<button class="evchip ${r.loss_breach ? 'loss' : 'pos'}" data-act="pinstep" data-i="${r.step}" title="Step ${r.step}: ${r.trigger.toLowerCase()}" aria-label="Step ${r.step}: ${r.trigger.toLowerCase()}">${r.step}</button>`).join('')
       + (ev.length > 5 ? `<span class="evchip more">+${ev.length - 5}</span>` : '');
@@ -923,7 +1010,7 @@ const DATA = {"instruments":[{"name":"USD/SGD","type":"FX","unit":"USD","pnl":"S
 
   function filtersPop() {
     const f = (k, lab, step) => `<div class="field"><label for="q-${k}">${lab}</label><input id="q-${k}" type="number" step="${step}" data-field="${k}" value="${+C.p[k].toPrecision(10)}"></div>`;
-    return `<div class="pop" style="right:0;min-width:280px;padding:14px"><div class="grid2" style="grid-template-columns:1fr 1fr;gap:10px">
+    return `<div class="pop${S.popAnim ? ' fresh' : ''}" style="right:0;min-width:280px;padding:14px"><div class="grid2" style="grid-template-columns:1fr 1fr;gap:10px">
       ${f('spread_ticks', 'Spread (ticks)', 0.5)}${f('max_skew_ticks', 'Max skew (ticks)', 0.5)}${f('pos_limit', `Position limit (${esc(C.inst.unit)})`, 1)}${f('loss_limit', `Loss limit (${esc(C.inst.pnl)})`, 1)}</div>
       <label class="toggle" style="margin:12px 0 4px"><input type="checkbox" data-glob="halt_on_loss" ${S.glob.halt_on_loss === 1 ? 'checked' : ''}>Halt quoting after a loss stop-out</label>
       <div style="margin-top:8px"><button class="btn" data-act="view" data-v="settings" style="width:100%">All settings</button></div></div>`;
@@ -933,7 +1020,7 @@ const DATA = {"instruments":[{"name":"USD/SGD","type":"FX","unit":"USD","pnl":"S
     const s = C.sum, p = C.p, c = esc(C.inst.pnl), dec = pnlDec(s.cum);
     const notional = p.pos_limit * p.spot_init, ret = s.cum / notional;
     const ticks = Array.from({ length: 22 }, (_, i) => `<i class="${i < Math.round((s.health / 100) * 22) ? 'on' : ''}"></i>`).join('');
-    const tile = (col, lab, val, sub) => `<div class="tile kpi"><div class="lab"><i style="background:${col}"></i>${lab}</div><div class="val num">${val}</div><div class="sub">${sub}</div></div>`;
+    const tile = (col, lab, val, sub) => `<div class="tile kpi"><div class="lab"><i style="background:${col}"></i>${lab}</div><div class="val num" style="--len:${String(val).length}">${val}</div><div class="sub">${sub}</div></div>`;
     return `<section class="card" aria-label="Desk performance">
       <div class="card-head perf-head"><h2>Desk Performance</h2><span class="health" title="Share of steps the desk was quoting live. A loss-limit stop-out halts quoting.">
         <span class="ticks" aria-hidden="true">${ticks}</span><b>${s.health}</b></span><span class="muted">Health Score</span><span class="sp"></span>
@@ -941,12 +1028,12 @@ const DATA = {"instruments":[{"name":"USD/SGD","type":"FX","unit":"USD","pnl":"S
         <button class="iconbtn" data-act="reshuffle" aria-label="New random scenario" title="New random scenario">${ico('refresh')}</button>
         <button class="iconbtn" data-act="view" data-v="activity" aria-label="Open activity log">${ico('out')}</button></div>
       <div class="perf"><div class="left"><div><div class="eyebrow">Total P&amp;L</div>
-        <div class="big num"><span>${money(s.cum, dec)}<span class="ccy" style="margin:0 0 0 8px;vertical-align:baseline;font-size:.4em">${c}</span></span>
+        <div class="big num" style="--len:${money(s.cum, dec).length}"><span>${money(s.cum, dec)}<span class="ccy" style="margin:0 0 0 8px;vertical-align:baseline;font-size:.4em">${c}</span></span>
         <span class="chip ${s.cum >= 0 ? 'up' : 'down'}" title="P&amp;L as a share of the position-limit notional">${ico(s.cum >= 0 ? 'up' : 'dn')}${nf(Math.abs(ret) * 100, 2)}%</span></div></div>
-        <div class="kpis">${tile('var(--mint)', 'Spread capture', money(s.capture, pnlDec(s.capture)), `${s.fills} fills`)}
+        <div class="kpis">${tile('var(--mint)', 'Spread capture', money(s.capture, pnlDec(s.capture)), plural(s.fills, 'fill', 'fills'))}
         ${tile('var(--orange)', 'Inventory MTM', money(s.mtm, pnlDec(s.mtm)), 'Moves vs. position')}
         ${tile('var(--orange)', 'Hedge cost', money(s.hedgeCost, pnlDec(s.hedgeCost)), `${compact(s.hedgeVolume)} ${esc(C.inst.unit)} hedged`)}
-        ${tile('#fff', 'Client volume', compact(s.volume), `${s.buys} buys · ${s.sells} sells`)}</div></div>
+        ${tile('#fff', 'Client volume', compact(s.volume), `${plural(s.buys, 'buy', 'buys')} · ${plural(s.sells, 'sell', 'sells')}`)}</div></div>
         <div class="hero" aria-label="Cumulative profit and loss chart"><div class="hero-top"><span class="t" id="hero-title"></span>
           <span class="seg" role="group" aria-label="Chart series"><button data-act="metric" data-m="pnl" aria-pressed="${S.metric === 'pnl'}">P&amp;L</button><button data-act="metric" data-m="pos" aria-pressed="${S.metric === 'pos'}">Position</button></span>
           <span class="ranges" role="group" aria-label="Range">${[[20, '20'], [40, '40'], [0, 'All']].map(([v, l]) => `<button data-act="range" data-r="${v}" aria-pressed="${S.range === v}">${l}</button>`).join('')}</span></div>
@@ -977,6 +1064,7 @@ const DATA = {"instruments":[{"name":"USD/SGD","type":"FX","unit":"USD","pnl":"S
     const pnl = S.metric === 'pnl';
     $('#hero-title').textContent = pnl ? `Cumulative P&L (${unit})` : `Closing position (${unit})`;
     const cur = vals[last], from = vals[start], dlt = cur - from;
+    $('#hero-val').style.setProperty('--len', String((pnl ? money(cur, pnlDec(cur)) : compact(cur)).length));
     $('#hero-val').innerHTML = pnl ? `${money(cur, pnlDec(cur))}<span class="ccy" style="margin:0 0 0 8px;vertical-align:baseline;font-size:.4em">${esc(unit)}</span>` : `${compact(cur)}<span class="ccy" style="margin:0 0 0 8px;vertical-align:baseline;font-size:.4em">${esc(unit)}</span>`;
     $('#hero-chip').innerHTML = `${ico(dlt >= 0 ? 'up' : 'dn')}${pnl ? signed(dlt, pnlDec(dlt)) : (dlt < 0 ? MINUS : '+') + compact(Math.abs(dlt))}`;
     const W = Math.max(260, el.clientWidth), H = Math.max(200, el.clientHeight), m = { l: 52, r: 14, t: 14, b: 26 };
@@ -1056,16 +1144,16 @@ const DATA = {"instruments":[{"name":"USD/SGD","type":"FX","unit":"USD","pnl":"S
     const lad = []; for (let k = -6; k <= 6; k++) { const ps = k * p.clip, qq = E.quote(F, ps, p), ut = ps / p.pos_limit; lad.push({ ps, qq, ut }); }
     const hedgeNext = Math.abs(pos - p.clip) > p.pos_limit || Math.abs(pos + p.clip) > p.pos_limit;
     return `<div class="page-head"><div><h2>Pricing: ${esc(S.inst)}</h2><p>${fx ? 'Covered interest parity' : 'Cost of carry'}, then a two-way quote skewed for inventory.</p></div></div>
-      <div class="cols" style="grid-template-columns:minmax(300px,0.9fr) minmax(300px,1.1fr)"><section class="card"><h3>Fair forward</h3>
+      <div class="cols"><section class="card"><h3>Fair forward</h3>
         <table class="recipe"><tr><td>Spot (${esc(C.inst.pnl)} per ${u})</td><td>${nf(p.spot_init, dec + 1)}</td></tr>
         <tr><td>${fx ? 'Base-currency factor' : 'Convenience-yield factor'}<br><span class="dim">1 + ${nf(p.rate_a * 100, 2)}% × ${d} / ${p.basis_a}</span></td><td>${fa.toFixed(6)}</td></tr>
         <tr><td>${fx ? 'Quote-currency factor' : 'Carry factor (financing + storage)'}<br><span class="dim">1 + ${nf(p.rate_b * 100, 2)}% × ${d} / ${p.basis_b}</span></td><td>${fb.toFixed(6)}</td></tr>
         <tr class="total"><td>Fair forward = spot × B ÷ A</td><td>${nf(F, dec + 1)}</td></tr></table>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><span class="chip ${pts >= 0 ? 'up' : 'down'}">${signed(pts, 1)} ticks</span><span class="chip light">${signed(prem * 100, 2)}% p.a.</span></div>
         <p class="muted" style="margin:12px 0 0">${F < p.spot_init ? `Forward at a <b>discount</b> to spot${fx ? ': the base currency yields more than the quote currency.' : ' (backwardation): convenience yield exceeds carry.'}` : `Forward at a <b>premium</b> to spot${fx ? ': the quote currency yields more than the base currency.' : ' (contango): carry exceeds convenience yield.'}`}</p></section>
-      <section class="hero" style="padding:18px"><div class="hero-top"><span class="t">Live quote</span><span class="stepper" style="margin-left:auto"><button data-act="clip" data-d="-1" aria-label="One clip shorter">${MINUS}</button><b id="clipval">${S.clips > 0 ? '+' : S.clips < 0 ? MINUS : ''}${Math.abs(S.clips)} clips</b><button data-act="clip" data-d="1" aria-label="One clip longer">+</button></span></div>
+      <section class="hero" style="padding:18px"><div class="hero-top"><span class="t">Live quote</span><span class="stepper" style="margin-left:auto"><button data-act="clip" data-d="-1" aria-label="One clip shorter">${MINUS}</button><b id="clipval">${S.clips > 0 ? '+' : S.clips < 0 ? MINUS : ''}${plural(Math.abs(S.clips), 'clip', 'clips')}</b><button data-act="clip" data-d="1" aria-label="One clip longer">+</button></span></div>
         <div class="eyebrow" style="color:rgba(255,255,255,.85);margin-top:10px">Position ${compact(pos)} ${u} · ${pct(pos / p.pos_limit)} of limit · skew ${signed(q.skew, 2)} ticks</div>
-        <div class="quote2"><div class="qbox"><div class="eyebrow">Bid · client sells to us</div><div class="big num">${nf(q.bid, dec)}</div></div><div class="qbox"><div class="eyebrow">Ask · client buys from us</div><div class="big num">${nf(q.ask, dec)}</div></div></div>
+        <div class="quote2"><div class="qbox"><div class="eyebrow">Bid · client sells to us</div><div class="big num" style="--len:${nf(q.bid, dec).length}">${nf(q.bid, dec)}</div></div><div class="qbox"><div class="eyebrow">Ask · client buys from us</div><div class="big num" style="--len:${nf(q.ask, dec).length}">${nf(q.ask, dec)}</div></div></div>
         <p style="margin:14px 0 0;font-weight:600">${hedgeNext ? 'A fill can breach the limit and trigger a hedge.' : 'Next fill stays inside the limit.'}</p>
         <p style="margin:2px 0 0;opacity:.85">Quote size ${compact(p.clip)} ${u} each side · spread ${nf(p.spread_ticks, 1)} ticks · fair forward ${nf(F, dec + 1)}</p></section></div>
       <section class="card"><h3>Skew ladder</h3><p class="muted" style="margin:4px 0 12px">Quotes at every inventory level. Rows past the limit trigger a hedge.</p>
@@ -1124,9 +1212,16 @@ const DATA = {"instruments":[{"name":"USD/SGD","type":"FX","unit":"USD","pnl":"S
   }
 
   // ------------------------------------------------------------------ data dialog (import / export)
-  const DL = { open: false, tab: 'export', what: 'run', fmt: 'csv', text: '', parsed: null, bundle: null };
+  const DL = { open: false, tab: 'export', what: 'run', fmt: 'csv', text: '', parsed: null, bundle: null, fresh: false };
+  let outTimer = null;
   let toastTimer = null;
-  function toast(msg) { const el = $('#toast'); el.textContent = msg; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 5000); }
+  let toastHide = null;
+  function toast(msg) {
+    const el = $('#toast');
+    clearTimeout(toastTimer); clearTimeout(toastHide);
+    el.textContent = msg; el.classList.remove('out'); el.hidden = false;
+    toastTimer = setTimeout(() => { el.classList.add('out'); toastHide = setTimeout(() => { el.hidden = true; el.classList.remove('out'); }, 170); }, 5000);
+  }
   const slug = (x) => String(x).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'data';
   const WHATS = [
     ['run', 'Run results', 'Every step: quotes, fills, P&L and hedges (CSV or JSON)'],
@@ -1179,12 +1274,13 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
         <div id="imp-prev" aria-live="polite"></div>
         <details class="fmt"><summary>Accepted formats</summary><pre>${esc(CHEAT)}</pre></details>`;
     }
-    el.innerHTML = `<div class="backdrop" data-act="dlgclose"><div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-title"><div class="card-head"><h2 id="dlg-title">Import / Export</h2><span class="sp"></span>
+    el.innerHTML = `<div class="backdrop${DL.fresh ? ' fresh' : ''}" data-act="dlgclose"><div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-title"><div class="card-head"><h2 id="dlg-title">Import / Export</h2><span class="sp"></span>
       <span class="tabs" role="group" aria-label="Mode"><button data-act="dlgtab" data-k="export" aria-pressed="${exp}">Export</button><button data-act="dlgtab" data-k="import" aria-pressed="${!exp}">Import</button></span>
       <button class="iconbtn x" data-act="dlgclose" aria-label="Close">${ico('x')}</button></div>${body}</div></div>`;
+    DL.fresh = false;
     if (exp) {
       $('#exp-text').value = DL.bundle.text;
-      $('#exp-meta').textContent = `${DL.bundle.text.split('\n').length - 1} lines, ${(DL.bundle.text.length / 1024).toFixed(1)} KB`;
+      $('#exp-meta').textContent = `${plural(DL.bundle.text.split('\n').length - 1, 'line', 'lines')}, ${(DL.bundle.text.length / 1024).toFixed(1)} KB`;
     } else {
       $('#imp-text').value = DL.text; renderPreview();
       const dz = $('#dropzone');
@@ -1245,9 +1341,17 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
       if (r.scenario) setScenario(r.scenario, r.scenario.note || 'Imported session');
       S.pin = null; msg = `Session loaded: ${inst.name}.`;
     }
-    DL.open = false; renderDialog(); render(); toast(msg);
+    closeDialog(); render(); toast(msg);
   }
-  function closeDialog() { DL.open = false; renderDialog(); }
+  /* Mouse close: 140ms exit. Escape / keyboard close: instant (keyboard actions are never animated). */
+  function closeDialog(instant) {
+    if (!DL.open) return;
+    DL.open = false; document.documentElement.style.overflow = '';
+    const bd = $('.backdrop');
+    if (instant || !bd) { $('#dlg').innerHTML = ''; return; }
+    bd.classList.add('out'); clearTimeout(outTimer);
+    outTimer = setTimeout(() => { if (!DL.open) $('#dlg').innerHTML = ''; }, 150);
+  }
   async function download(b) {
     // Inside the Claude artifact viewer, plain downloads are blocked: the viewer offers a save prompt through the downloads capability.
     let cap = null;
@@ -1275,12 +1379,12 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
   function dialogClick(a, t, e) {
     if (a === 'dlgclose' && t.classList.contains('backdrop') && e.target !== t) return;
     if (a === 'data') {
-      DL.open = true; DL.tab = t.dataset.tab || DL.tab; if (t.dataset.what) DL.what = t.dataset.what;
+      clearTimeout(outTimer); DL.open = true; DL.fresh = e.detail !== 0; DL.tab = t.dataset.tab || DL.tab; if (t.dataset.what) DL.what = t.dataset.what;
       if (DL.tab === 'import') { DL.text = ''; DL.parsed = null; }
       if (S.pop) { S.pop = null; render(); }
       return renderDialog();
     }
-    if (a === 'dlgclose') return closeDialog();
+    if (a === 'dlgclose') return closeDialog(e.detail === 0);
     if (a === 'dlgtab') { DL.tab = t.dataset.k; DL.text = ''; DL.parsed = null; return renderDialog(); }
     if (a === 'dlgwhat') { DL.what = t.dataset.k; if (DL.what === 'session') DL.fmt = 'json'; return renderDialog(); }
     if (a === 'dlgfmt') { DL.fmt = t.dataset.k; return renderDialog(); }
@@ -1300,7 +1404,8 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
   function render() {
     compute();
     const v = { desk: viewDesk, pricing: viewPricing, instruments: viewInstruments, activity: viewActivity, settings: viewSettings }[S.view]();
-    $('#app').innerHTML = header() + '<main style="display:grid;gap:12px">' + v + '</main><div class="foot">Illustrative levels, simulated clients and a simplified model. Educational use only, not trading advice.</div>';
+    $('#app').innerHTML = header() + '<main class="' + (S.intro ? 'enter' : '') + '" style="display:grid;gap:12px">' + v + '</main><div class="foot">Illustrative levels, simulated clients and a simplified model. Educational use only, not trading advice.</div>';
+    S.intro = false; S.popAnim = false;
     if (ro) ro.disconnect();
     if (S.view === 'desk') {
       drawHero();
@@ -1327,7 +1432,7 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
     const a = t.dataset.act;
     if (a === 'data' || a.startsWith('dlg')) return dialogClick(a, t, e);
     if (a === 'view') return setView(t.dataset.v);
-    if (a === 'pop') { S.pop = S.pop === t.dataset.id ? null : t.dataset.id; return render(); }
+    if (a === 'pop') { S.pop = S.pop === t.dataset.id ? null : t.dataset.id; S.popAnim = e.detail !== 0; return render(); }   // keyboard-initiated: no animation
     if (a === 'inst') { S.inst = t.dataset.name; S.over = {}; S.pin = null; S.pop = null; if (t.dataset.go) S.view = t.dataset.go; render(); return; }
     if (a === 'search') { S.view = 'instruments'; S.pop = null; render(); const s = $('#search'); if (s) s.focus(); return; }
     if (a === 'metric') { S.metric = t.dataset.m; S.pin = null; return render(); }
@@ -1343,7 +1448,7 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
     if (a === 'pinstep') { S.pin = +t.dataset.i; S.view = 'desk'; S.pop = null; S.range = 0; S.metric = 'pnl'; render(); const pl = $('#plot'); if (pl) pl.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && DL.open) { closeDialog(); return; }
+    if (e.key === 'Escape' && DL.open) { closeDialog(true); return; }
     if (e.key === 'Escape' && S.pop) { S.pop = null; render(); }
     if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('tr.clickable')) { e.preventDefault(); e.target.click(); }
   });

@@ -76,12 +76,15 @@ const IO = (function () {
     const n = Number(s);
     return pct ? n / 100 : n;
   }
-  const cleanName = (s) => String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 40);
-  const cleanTxt = (s, n) => unguard(String(s == null ? '' : s)).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, n);
+  const MAX_NAME = 40;
+  const clip = (s, n) => Array.from(s).slice(0, n).join('');            // by code point, so an emoji is never cut in half
+  const cleanFull = (s) => String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]/g, '').trim();
+  const cleanName = (s) => clip(cleanFull(s), MAX_NAME);
+  const cleanTxt = (s, n) => clip(cleanFull(unguard(String(s == null ? '' : s))), n);
 
   /** Validate one instrument definition (flat object with canonical keys). Returns {ok:{...}} or {error:'...'} */
   function buildInstrument(raw, label) {
-    const name = cleanName(unguard(raw.name));
+    const full = cleanFull(unguard(raw.name)), name = clip(full, MAX_NAME), shortened = Array.from(full).length > MAX_NAME;
     const at = label || name || '(unnamed)';
     if (!name) return { error: `${at}: missing name` };
     if (['__proto__', 'constructor', 'prototype'].includes(name)) return { error: `${at}: reserved name` };
@@ -103,7 +106,7 @@ const IO = (function () {
     for (const k of ['spread_ticks', 'max_skew_ticks', 'hedge_cost_ticks', 'step_vol_ticks']) if (params[k] < 0) return { error: `${name}: ${k} cannot be negative` };
     for (const k of RATE_KEYS) if (!(params[k] > -0.5 && params[k] < 1)) return { error: `${name}: ${k} = ${params[k]} is outside -50%..100%. Use a fraction (0.04) or a percent sign (4%).` };
     if (params.tenor_days > 3650) return { error: `${name}: tenor_days is unreasonably large` };
-    return { ok: { name, type, unit, pnl, note: cleanTxt(raw.note, 240), params } };
+    return { ok: { name, type, unit, pnl, note: cleanTxt(raw.note, 240), params }, shortened };
   }
 
   // ------------------------------------------------------------------ scenario parsing
@@ -163,6 +166,7 @@ const IO = (function () {
     recs.forEach((r, i) => {
       const res = buildInstrument(r, `Row ${i + 1}`);
       if (res.error) { errors.push(res.error); return; }
+      if (res.shortened) warnings.push(`${res.ok.name}: the name was longer than ${MAX_NAME} characters and was shortened.`);
       if (own(seen, res.ok.name)) { warnings.push(`${res.ok.name}: appears more than once, the last row wins.`); list[seen[res.ok.name]] = res.ok; return; }
       seen[res.ok.name] = list.length; list.push(res.ok);
     });

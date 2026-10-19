@@ -11,6 +11,7 @@ Examples:
 import argparse
 import csv
 import sys
+from decimal import Decimal
 
 from instruments import ALL, DEFAULT, GLOBALS, by_name, params
 from reference_model import generate_scenario, simulate
@@ -67,8 +68,8 @@ def load_scenario(path, step_vol_ticks):
 
 
 def decimals(tick):
-    s = repr(float(tick))
-    return len(s.split(".")[1]) if "." in s and not s.endswith(".0") else 0
+    """Decimals in a tick size. repr(1e-08) is '1e-08', so go through Decimal rather than splitting the string."""
+    return max(0, -Decimal(repr(float(tick))).normalize().as_tuple().exponent)
 
 
 def main():

@@ -122,6 +122,64 @@ const { chromium } = require('playwright');
   await pd.click('button[aria-label="Import or export data"]');
   const [dl2] = await Promise.all([pd.waitForEvent('download', { timeout: 5000 }).catch(() => null), pd.click('button[data-act="dlgdl"]')]);
   ok('falls back to a browser download when the capability is unavailable', !!dl2 && dl2.suggestedFilename() === 'forward-desk_usd-sgd_run.csv');
+  // ---------- motion (Emil Kowalski's rules) ----------
+  const scaleOf = (el) => el.evaluate((n) => { const m = getComputedStyle(n).transform; return m === 'none' ? 1 : parseFloat(m.slice(7)); });
+  const fresh = await b.newPage({ viewport: { width: 1280, height: 900 } });
+  await fresh.addInitScript(() => { window.__t = []; });
+  await fresh.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html')); await fresh.waitForTimeout(150);
+  ok('first load: cards settle in (main.enter present)', (await fresh.locator('main.enter').count()) === 1);
+  await fresh.waitForTimeout(500);
+  await fresh.click('.nav button:has-text("Pricing")'); await fresh.waitForTimeout(100);
+  ok('view switching is NOT animated (core navigation)', (await fresh.locator('main.enter').count()) === 0);
+  await fresh.click('.nav button:has-text("Desk")');
+  // press feedback: scale(0.97) while held, back to 1 on release, and a 160ms ease-out transition (not 'all')
+  const pill = fresh.locator('.pill:has-text("Filters")');
+  const bx = await pill.boundingBox(); await fresh.mouse.move(bx.x + bx.width / 2, bx.y + bx.height / 2); await fresh.mouse.down(); await fresh.waitForTimeout(260);
+  const held = await scaleOf(pill); await fresh.mouse.up(); await fresh.waitForTimeout(260);
+  ok('press feedback scales to 0.97 and releases', Math.abs(held - 0.97) < 0.005 && Math.abs((await scaleOf(pill)) - 1) < 0.005);
+  ok('buttons transition specific properties, never "all"', !(await pill.evaluate((n) => getComputedStyle(n).transitionProperty)).includes('all'));
+  // popover: mouse opens with the entrance (origin-aware); keyboard opens with none
+  await fresh.click('.who'); ok('popover opened by mouse animates in (.fresh)', (await fresh.locator('.pop.fresh').count()) === 1);
+  await fresh.keyboard.press('Escape');
+  await fresh.focus('.who'); await fresh.keyboard.press('Enter'); await fresh.waitForTimeout(80);
+  ok('popover opened by keyboard does not animate', (await fresh.locator('.pop').count()) === 1 && (await fresh.locator('.pop.fresh').count()) === 0);
+  await fresh.keyboard.press('Escape');
+  // dialog: mouse open = entrance, mouse close = 140ms exit (.out then removed); Escape = instant
+  await fresh.click('button[aria-label="Import or export data"]'); ok('dialog opened by mouse animates in', (await fresh.locator('.backdrop.fresh').count()) === 1);
+  await fresh.waitForTimeout(260);
+  await fresh.click('button[aria-label="Close"]'); await fresh.waitForTimeout(40);
+  ok('mouse close plays a short exit first (.out)', (await fresh.locator('.backdrop.out').count()) === 1);
+  await fresh.waitForTimeout(260); ok('...then the dialog is gone', (await fresh.locator('.dlg').count()) === 0);
+  await fresh.click('button[aria-label="Import or export data"]'); await fresh.waitForTimeout(260);
+  await fresh.keyboard.press('Escape'); ok('Escape closes instantly with no exit animation', (await fresh.locator('.dlg').count()) === 0);
+  await fresh.focus('button[aria-label="Import or export data"]'); await fresh.keyboard.press('Enter'); await fresh.waitForTimeout(60);
+  ok('dialog opened by keyboard does not animate', (await fresh.locator('.dlg').count()) === 1 && (await fresh.locator('.backdrop.fresh').count()) === 0);
+  await fresh.keyboard.press('Escape');
+  // toast leaves by the edge it came from, then is removed
+  await fresh.click('button[aria-label="Import or export data"]'); await fresh.click('button[data-act="dlgcopy"]'); await fresh.waitForTimeout(300);
+  ok('toast enters (visible)', !(await fresh.locator('#toast').evaluate((n) => n.hidden)));
+  await fresh.waitForTimeout(5000); ok('toast plays its exit (.out) before hiding', (await fresh.locator('#toast.out').count()) === 1 || (await fresh.locator('#toast').evaluate((n) => n.hidden)));
+  await fresh.waitForTimeout(400); ok('toast is hidden afterwards', await fresh.locator('#toast').evaluate((n) => n.hidden));
+  // the transitions really run (not just classes): sample computed opacity frame by frame
+  const sample = (pg, sel, ms) => pg.evaluate(([q, t]) => new Promise((res) => { const out = []; const iv = setInterval(() => { const n = document.querySelector(q); if (n) out.push(+getComputedStyle(n).opacity); }, 16); setTimeout(() => { clearInterval(iv); res(out); }, t); }), [sel, ms]);
+  const intro = await b.newPage({ viewport: { width: 1280, height: 900 } });
+  await intro.addInitScript(() => { window.__ops = []; const iv = setInterval(() => { const n = document.querySelector('main > :first-child'); if (n) window.__ops.push(+getComputedStyle(n).opacity); }, 16); setTimeout(() => clearInterval(iv), 900); });
+  await intro.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html')); await intro.waitForTimeout(1000);
+  const ops = await intro.evaluate(() => window.__ops);
+  ok('first-load stagger actually runs: card fades 0 -> 1 over the first frames', Math.min(...ops) < 0.9 && ops[ops.length - 1] === 1);
+  await fresh.keyboard.press('Escape');   // the toast test above left the dialog open
+  const sp = sample(fresh, '.dlg', 450); await fresh.click('button[aria-label="Import or export data"]'); const dop = await sp;
+  ok('dialog entrance actually runs: opacity rises from below 1 to exactly 1 within 300ms', Math.min(...dop) < 0.95 && dop[dop.length - 1] === 1);
+  await fresh.keyboard.press('Escape');
+  // reduced motion: gentler, not zero. Press movement is removed.
+  const rm = await b.newContext({ reducedMotion: 'reduce', viewport: { width: 1280, height: 900 } }); const rp = await rm.newPage();
+  await rp.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html')); await rp.waitForTimeout(300);
+  const rpill = rp.locator('.pill:has-text("Filters")'); const rb = await rpill.boundingBox(); await rp.mouse.move(rb.x + rb.width / 2, rb.y + rb.height / 2); await rp.mouse.down(); await rp.waitForTimeout(260);
+  ok('reduced motion: no press scaling', Math.abs((await scaleOf(rpill)) - 1) < 0.005); await rp.mouse.up();
+  // hover is gated: in a touch context no hover rule applies
+  const touch = await b.newContext({ hasTouch: true, isMobile: true, viewport: { width: 400, height: 860 } }); const tp = await touch.newPage();
+  await tp.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html')); await tp.waitForTimeout(300);
+  ok('touch device: (hover: hover) is false so hover styles are inert', !(await tp.evaluate(() => matchMedia('(hover: hover) and (pointer: fine)').matches)));
   console.log('page errors:', JSON.stringify(errs));
   await b.close();
 })();
