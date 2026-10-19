@@ -7,7 +7,7 @@ const { chromium } = require('playwright');
 const ROOT = path.resolve(__dirname, '..');
 const DEMO = process.argv.includes('--demo');
 const WIDTHS = [1280, 640, 400, 320];            // 640 ~ a 1280px window at 200% browser zoom
-const VIEWS = ['Desk', 'Pricing', 'Instruments', 'Activity', 'Settings'];
+const VIEWS = ['Desk', 'Pricing', 'Instruments', 'Activity', 'Setup'];
 
 const detect = () => {
   const out = [], vw = document.documentElement.clientWidth;
@@ -33,7 +33,7 @@ const detectSrc = detect.toString();
     const pg = await b.newPage({ viewport: { width: w, height: 900 } });
     pg.on('pageerror', (e) => errs.push(e.message));
     await pg.addInitScript(`window.detect = ${detectSrc}`);
-    await pg.goto('file://' + ROOT + '/dashboard/index.html'); await pg.waitForTimeout(250);
+    await pg.goto('file://' + ROOT + '/dashboard/index.html#desk'); await pg.waitForTimeout(250);
     let names = [];
     if (!DEMO) {
       await pg.click('button[aria-label="Import or export data"]'); await pg.click('button[data-act="dlgtab"][data-k="import"]');
@@ -54,6 +54,14 @@ const detectSrc = detect.toString();
         if (!DEMO && w === 400 && ['Desk', 'Instruments'].includes(v) && name.startsWith('Singapore')) await pg.screenshot({ path: process.env.SHOTS ? `${process.env.SHOTS}/worst_${v}_${w}.png` : '/dev/null', fullPage: true }).catch(() => {});
       }
     }
+    // the front page before any run, and the gate shown on a result tab
+    const fresh = await b.newPage({ viewport: { width: w, height: 900 } }); await fresh.addInitScript(`window.detect = ${detectSrc}`);
+    await fresh.goto('file://' + ROOT + '/dashboard/index.html'); await fresh.waitForTimeout(200);
+    for (const [label, act] of [['Setup (before run)', async () => {}], ['Gate (before run)', async () => { await fresh.click('.nav button:has-text("Desk")'); await fresh.waitForTimeout(80); }]]) {
+      await act();
+      for (const f of await fresh.evaluate(detect)) { const k = `${f.sel} | ${label}`; const cur = found.get(k) || { n: 0, worst: 0, widths: new Set(), ex: f.text, names: new Set() }; cur.n++; cur.worst = Math.max(cur.worst, f.over); cur.widths.add(w); found.set(k, cur); }
+    }
+    await fresh.close();
     // the dialog itself with a hostile library loaded
     await pg.click('button[aria-label="Import or export data"]'); await pg.click('button[data-act="dlgtab"][data-k="export"]'); await pg.waitForTimeout(150);
     for (const f of await pg.evaluate(detect)) { const k = `${f.sel} | Dialog`; const cur = found.get(k) || { n: 0, worst: 0, widths: new Set(), ex: f.text, names: new Set() }; cur.n++; cur.worst = Math.max(cur.worst, f.over); cur.widths.add(w); found.set(k, cur); }
@@ -63,7 +71,7 @@ const detectSrc = detect.toString();
   const sem = [];
   if (!DEMO) {
     const pg = await b.newPage({ viewport: { width: 1280, height: 900 } }); pg.on('pageerror', (e) => errs.push(e.message));
-    await pg.goto('file://' + ROOT + '/dashboard/index.html'); await pg.waitForTimeout(200);
+    await pg.goto('file://' + ROOT + '/dashboard/index.html#desk'); await pg.waitForTimeout(200);
     const loadFile = async (f) => { await pg.click('button[aria-label="Import or export data"]'); await pg.click('button[data-act="dlgtab"][data-k="import"]'); await pg.setInputFiles('#imp-file', ROOT + '/tests/fixtures/' + f); await pg.waitForTimeout(200); const prev = await pg.locator('#imp-prev').innerText(); await pg.click('button[data-act="dlgapply"]'); await pg.waitForTimeout(250); return prev; };
     const libPrev = await loadFile('worst_case_library.json');
     sem.push(['importer says when a name is shortened', /shortened/.test(libPrev)]);
@@ -80,7 +88,7 @@ const detectSrc = detect.toString();
     const one = await pg.locator('#app').innerText();
     sem.push(['one-step scenario renders (no NaN / undefined)', !/NaN|undefined/.test(one) && (await pg.locator('#plot svg').count()) === 1]);
     sem.push(['singular wording: "1 fill", "1 step"', /\b1 fill\b/.test(one) && /Over 1 step\b/.test(one) && !/\b1 fills\b/.test(one)]);
-    for (const v of ['Pricing', 'Instruments', 'Activity', 'Settings']) { await pg.click(`.nav button:has-text("${v}")`); await pg.waitForTimeout(80); }
+    for (const v of ['Pricing', 'Instruments', 'Activity', 'Setup']) { await pg.click(`.nav button:has-text("${v}")`); await pg.waitForTimeout(80); }
     sem.push(['every view survives a one-step scenario', true]);
     await pg.close();
   }

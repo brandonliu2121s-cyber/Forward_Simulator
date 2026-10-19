@@ -2,12 +2,12 @@
 
 Open `index.html` in a browser. It is one self-contained file (HTML, CSS and JavaScript): no frontend framework, no backend, no install.
 
+- **Setup** (the front page): choose the instrument, override any input, resize the scenario (10 to 500 steps), load the Excel scenario or generate a random one, then press **Run simulation**. Until you run, the other tabs show a short prompt instead of charts; after the run the Desk, Pricing, Instruments and Activity views pop in. Come back to Setup any time and press **Update results**. A link ending in `#desk` (or another view) skips Setup.
 - **Desk**: P&L, spread capture, inventory MTM and hedge cost; an orange hero chart (hover for step detail, click or use the arrow keys to pin a step; markers show limit hedges); a watchlist of all 14 instruments with simulated P&L sparklines; limit-usage bars; a risk-score gauge; generated insights with clickable limit-event chips.
 - **Pricing**: the fair-forward derivation, a live bid/ask quote for any inventory, and the skew ladder.
 - **Instruments**: the library with fair forwards, forward points and simulated P&L; click a row to load it.
 - **Activity**: every step. Edit a market move or click an action (BUY / SELL / NONE) and everything recalculates.
-- **Settings**: override any instrument input, resize the scenario (10 to 500 steps), load the Excel scenario or generate a random one.
-- **Import / Export**: the arrows button in the top bar, or the buttons on Instruments, Activity and Settings.
+- **Import / Export**: the arrows button in the top bar, or the buttons on Instruments, Activity and Setup.
 
 Scores: **Health** = share of steps quoting live. **Risk score** (0 to 100, higher is safer) = half inventory headroom plus half loss headroom, minus 4 per position-limit hedge and 10 per loss stop-out; the card also shows what inventory skew was worth against the same run with zero skew.
 

@@ -330,6 +330,14 @@ h2, h3 { text-wrap: balance; }
 .nav button.rise, .tabs button.rise { transition-duration: 220ms, 120ms, 120ms, 120ms; }
 @starting-style { .nav button.rise, .tabs button.rise { transform: translateY(6px) scale(0.94); } }
 
+/* setup page: the primary action and the not-yet-run state */
+.nav button.locked { color: var(--ink-3); }
+.cta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.cta > div { min-width: 0; flex: 1 1 200px; overflow-wrap: anywhere; }
+.cta > span { display: none; }
+.btn.run { padding: 0 22px; }
+.gate { max-width: 520px; }
+
 /* popovers grow from their trigger corner; opened by click only (no replay when a field inside re-renders) */
 .pop { transform-origin: top right; transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out); }
 @starting-style { .pop.fresh { opacity: 0; transform: scale(0.96); } }
@@ -471,9 +479,10 @@ const DATA = /*__DATA__*/;
   const ico = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
 
   // ------------------------------------------------------------------ state
-  const VIEWS = [['desk', 'Desk'], ['pricing', 'Pricing'], ['instruments', 'Instruments'], ['activity', 'Activity'], ['settings', 'Settings']];
+  const VIEWS = [['setup', 'Setup'], ['desk', 'Desk'], ['pricing', 'Pricing'], ['instruments', 'Instruments'], ['activity', 'Activity']];
+  const RESULT_VIEWS = { desk: 'Desk', pricing: 'Pricing', instruments: 'Instruments', activity: 'Activity' };
   const S = {
-    view: 'desk', inst: D.default, over: {}, glob: Object.assign({}, D.globals),
+    view: 'setup', ran: false, inst: D.default, over: {}, glob: Object.assign({}, D.globals),
     zs: D.scenario.zs.slice(), acts: D.scenario.actions.slice(), seed: D.scenario.seed, seedNote: 'Excel scenario',
     range: 0, metric: 'pnl', pin: null, barMode: 'peak', barTable: false, clips: 2, search: '', pop: null,
     intro: true, popAnim: false, tabAnim: false,
@@ -498,7 +507,7 @@ const DATA = /*__DATA__*/;
 
   // ------------------------------------------------------------------ header
   function header() {
-    const nav = VIEWS.map(([k, l]) => `<button data-act="view" data-v="${k}" ${S.view === k ? 'aria-current="page"' + (S.tabAnim ? ' class="rise"' : '') : ''}>${l}</button>`).join('');
+    const nav = VIEWS.map(([k, l]) => `<button data-act="view" data-v="${k}" ${S.view === k ? 'aria-current="page"' + (S.tabAnim ? ' class="rise"' : '') : (!S.ran && k !== 'setup' ? 'class="locked"' : '')}>${l}</button>`).join('');
     const events = C.rows.filter((r) => r.trigger);
     const bell = `<div class="popwrap"><button class="round" data-act="pop" data-id="bell" aria-label="Limit alerts" aria-expanded="${S.pop === 'bell'}">${ico('bell')}${events.length ? '<span class="dot"></span>' : ''}</button>${
       S.pop === 'bell' ? `<div class="pop${S.popAnim ? ' fresh' : ''}"><h4>Limit events</h4>${events.length ? events.slice(0, 8).map((r) => `<button class="evt" data-act="pinstep" data-i="${r.step}"><i style="background:${r.loss_breach ? 'var(--orange)' : 'var(--yellow)'}"></i><span><b>Step ${r.step}: ${r.trigger.toLowerCase()}</b><br><span class="muted">${r.hedge > 0 ? 'Bought' : 'Sold'} ${compact(Math.abs(r.hedge))} ${esc(C.inst.unit)} with the street</span></span></button>`).join('') : '<div class="empty">No limit events in this run.</div>'}</div>` : ''}</div>`;
@@ -597,7 +606,7 @@ const DATA = /*__DATA__*/;
     return `<div class="pop${S.popAnim ? ' fresh' : ''}" style="right:0;min-width:280px;padding:14px"><div class="grid2" style="grid-template-columns:1fr 1fr;gap:10px">
       ${f('spread_ticks', 'Spread (ticks)', 0.5)}${f('max_skew_ticks', 'Max skew (ticks)', 0.5)}${f('pos_limit', `Position limit (${esc(C.inst.unit)})`, 1)}${f('loss_limit', `Loss limit (${esc(C.inst.pnl)})`, 1)}</div>
       <label class="toggle" style="margin:12px 0 4px"><input type="checkbox" data-glob="halt_on_loss" ${S.glob.halt_on_loss === 1 ? 'checked' : ''}>Halt quoting after a loss stop-out</label>
-      <div style="margin-top:8px"><button class="btn" data-act="view" data-v="settings" style="width:100%">All settings</button></div></div>`;
+      <div style="margin-top:8px"><button class="btn" data-act="view" data-v="setup" style="width:100%">All inputs</button></div></div>`;
   }
 
   function viewDesk() {
@@ -774,15 +783,16 @@ const DATA = /*__DATA__*/;
       <p class="muted" style="margin:10px 4px 0"><span style="color:var(--yellow)">Yellow</span> rows hit the position limit, <span style="color:var(--coral)">orange</span> rows hit the loss limit, grey rows are halted.</p>`;
   }
 
-  // ------------------------------------------------------------------ settings
-  function viewSettings() {
+  // ------------------------------------------------------------------ setup (the front page: inputs first, results after Run)
+  function viewSetup() {
     const base = C.inst.params, fx = C.inst.type === 'FX', u = esc(C.inst.unit), c = esc(C.inst.pnl);
     const F = (k, lab, o = {}) => {
       const sc = o.pct ? 100 : 1, ov = S.over[k] !== undefined, v = ov ? +(S.over[k] * sc).toPrecision(10) : '';
       return `<div class="field"><label for="f-${k}">${lab}</label><input id="f-${k}" type="number" step="${o.step || 'any'}" data-field="${k}" ${o.pct ? 'data-pct="1"' : ''} class="${ov ? 'ov' : ''}" value="${v}" placeholder="${+(base[k] * sc).toPrecision(10)}"><small>${ov ? 'Overridden' : 'Default'}: ${+(base[k] * sc).toPrecision(10)}${o.unit || ''}</small></div>`;
     };
     const opts = D.instruments.map((i) => `<option ${i.name === S.inst ? 'selected' : ''}>${esc(i.name)}</option>`).join('');
-    return `<div class="page-head"><div><h2>Settings</h2><p>Leave a field blank to use the ${esc(S.inst)} default. Changes apply when you leave the field.</p></div><span style="flex:1"></span><button class="btn" data-act="data" data-tab="import" data-what="session">Import / Export</button><button class="btn" data-act="resetover">Reset to defaults</button></div>
+    const runBtn = `<button class="btn orange run" data-act="run">${S.ran ? 'Update results' : 'Run simulation'}</button>`;
+    return `<div class="page-head"><div><h2>${S.ran ? 'Setup' : 'Set up your simulation'}</h2><p>${S.ran ? 'Change any input, then update the results.' : 'Pick an instrument, adjust any inputs, then run. Charts, pricing and advice appear on the Desk.'} Leave a field blank to use the ${esc(S.inst)} default.</p></div><span style="flex:1"></span><button class="btn" data-act="data" data-tab="import" data-what="session">Import / Export</button><button class="btn" data-act="resetover">Reset to defaults</button>${runBtn}</div>
       <div class="cols"><section class="card"><h3>Scenario</h3><div class="grid2" style="margin-top:12px"><div class="field"><label for="f-inst">Instrument</label><select id="f-inst" data-inst>${opts}</select></div>
         <div class="field"><label for="f-steps">Steps</label><input id="f-steps" type="number" min="10" max="500" step="1" value="${S.zs.length}" data-steps><small>10 to 500 client RFQs</small></div></div>
         <p class="muted" style="margin:14px 0 8px">Scenario: <b style="color:var(--ink)">${esc(S.seedNote)}</b>${S.seed == null || S.seedNote.startsWith('Excel') ? '' : ' #' + S.seed}</p>
@@ -792,7 +802,14 @@ const DATA = /*__DATA__*/;
       <section class="card"><h3>Risk and hedging</h3><div class="grid2" style="margin-top:12px">${F('pos_limit', `Position limit (${u})`, { step: 1 })}${F('loss_limit', `Loss limit (${c})`, { step: 1 })}${F('hedge_cost_ticks', 'Street half-spread paid on hedges (ticks)', { step: 0.5 })}
         <div class="field"><label for="g-hp">Residual after limit hedge (% of limit)</label><input id="g-hp" type="number" step="5" min="0" max="100" data-gpct="hedge_target_pct" value="${S.glob.hedge_target_pct * 100}"></div>
         <div class="field"><label for="g-sp">Opening position (${u})</label><input id="g-sp" type="number" step="1" data-gnum="start_pos" value="${S.glob.start_pos}"></div>
-        <div class="field"><label>Loss-limit stop-out</label><label class="toggle"><input type="checkbox" data-glob="halt_on_loss" ${S.glob.halt_on_loss === 1 ? 'checked' : ''}>Halt quoting after a breach</label></div></div></section></div>`;
+        <div class="field"><label>Loss-limit stop-out</label><label class="toggle"><input type="checkbox" data-glob="halt_on_loss" ${S.glob.halt_on_loss === 1 ? 'checked' : ''}>Halt quoting after a breach</label></div></div></section></div>
+      <section class="card cta"><div><h3>${S.ran ? 'Ready to refresh?' : 'Ready to run?'}</h3><p class="muted" style="margin:4px 0 0">${esc(S.inst)} · ${plural(S.zs.length, 'client request', 'client requests')} · ${esc(S.seedNote)}${Object.keys(S.over).length ? ' · ' + plural(Object.keys(S.over).length, 'override', 'overrides') : ''}</p></div><span style="flex:1"></span>${runBtn}</section>`;
+  }
+
+  function viewGate() {
+    const name = RESULT_VIEWS[S.view];
+    return `<div class="page-head"><div><h2>${name}</h2><p>Nothing to show yet.</p></div></div>
+      <section class="card gate"><h3>Enter your inputs first</h3><p class="muted" style="margin:6px 0 14px">Set up the instrument and risk limits, then run the simulation. The charts, pricing and advice for ${esc(S.inst)} will appear here.</p><button class="btn orange" data-act="view" data-v="setup">Go to Setup</button></section>`;
   }
 
   // ------------------------------------------------------------------ data dialog (import / export)
@@ -987,11 +1004,11 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => requestAnimationFrame(drawHero)) : null;
   function render() {
     compute();
-    const v = { desk: viewDesk, pricing: viewPricing, instruments: viewInstruments, activity: viewActivity, settings: viewSettings }[S.view]();
+    const v = (!S.ran && S.view !== 'setup' ? viewGate : { setup: viewSetup, desk: viewDesk, pricing: viewPricing, instruments: viewInstruments, activity: viewActivity }[S.view])();
     $('#app').innerHTML = header() + '<main class="' + (S.intro ? 'enter' : '') + '" style="display:grid;gap:12px">' + v + '</main><div class="foot">Illustrative levels, simulated clients and a simplified model. Educational use only, not trading advice.</div>';
     S.intro = false; S.popAnim = false; S.tabAnim = false;
     if (ro) ro.disconnect();
-    if (S.view === 'desk') {
+    if (S.view === 'desk' && S.ran) {
       drawHero();
       if (ro) ro.observe($('#plot'));
       const sel = $('.wl-item[aria-current="true"]');
@@ -1015,6 +1032,7 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
     if (!t) { if (S.pop && !e.target.closest('.pop')) { S.pop = null; render(); } return; }
     const a = t.dataset.act;
     if (a === 'data' || a.startsWith('dlg')) return dialogClick(a, t, e);
+    if (a === 'run') { S.ran = true; S.intro = e.detail !== 0; S.pin = null; S.pop = null; return setView('desk'); }   // results pop in with the first-load stagger; keyboard-initiated: instant
     if (a === 'view') { S.tabAnim = e.detail !== 0 && t.dataset.v !== S.view; return setView(t.dataset.v); }   // keyboard-initiated: no animation
     if (a === 'pop') { S.pop = S.pop === t.dataset.id ? null : t.dataset.id; S.popAnim = e.detail !== 0; return render(); }   // keyboard-initiated: no animation
     if (a === 'inst') { S.inst = t.dataset.name; S.over = {}; S.pin = null; S.pop = null; if (t.dataset.go) S.view = t.dataset.go; render(); return; }
@@ -1040,23 +1058,38 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
     if (e.target.dataset && e.target.dataset.imptext !== undefined) { onImportText(e.target.value, ''); return; }
     if (e.target.id === 'search') { S.search = e.target.value; const pos = e.target.selectionStart; render(); const s = $('#search'); if (s) { s.focus(); s.setSelectionRange(pos, pos); } }
   });
+  /* On Setup the number fields update in place: re-rendering on blur would swap the Run button out from under a click. */
+  function patchField(t) {
+    const k = t.dataset.field, ov = S.over[k] !== undefined, base = C.inst.params[k], sc = t.dataset.pct ? 100 : 1;
+    t.classList.toggle('ov', ov);
+    const sm = t.parentElement.querySelector('small');
+    if (sm) sm.textContent = (ov ? 'Overridden' : 'Default') + ': ' + +(base * sc).toPrecision(10);
+    refreshCta();
+  }
+  function refreshCta() {
+    const p = document.querySelector('.cta .muted'); if (!p) return;
+    const n = Object.keys(S.over).length;
+    p.textContent = S.inst + ' · ' + plural(S.zs.length, 'client request', 'client requests') + ' · ' + S.seedNote + (n ? ' · ' + plural(n, 'override', 'overrides') : '');
+  }
   document.addEventListener('change', (e) => {
     const t = e.target, keep = () => { const sy = window.scrollY; render(); window.scrollTo(0, sy); };
     if (t.dataset.file !== undefined) { readFile(t.files && t.files[0]); return; }
     if (t.dataset.field) {
       const k = t.dataset.field, raw = t.value.trim(), v = parseFloat(raw);
       if (raw === '' || Number.isNaN(v)) delete S.over[k]; else S.over[k] = t.dataset.pct ? v / 100 : v;
+      if (S.view === 'setup') return patchField(t);
       return keep();
     }
     if (t.dataset.glob) { S.glob[t.dataset.glob] = t.checked ? 1 : 0; return keep(); }
-    if (t.dataset.gpct) { const v = parseFloat(t.value); S.glob[t.dataset.gpct] = Number.isNaN(v) ? 0 : Math.max(0, Math.min(1, v / 100)); return keep(); }
-    if (t.dataset.gnum) { const v = parseFloat(t.value); S.glob[t.dataset.gnum] = Number.isNaN(v) ? 0 : v; return keep(); }
+    if (t.dataset.gpct) { const v = parseFloat(t.value); S.glob[t.dataset.gpct] = Number.isNaN(v) ? 0 : Math.max(0, Math.min(1, v / 100)); return S.view === 'setup' ? undefined : keep(); }
+    if (t.dataset.gnum) { const v = parseFloat(t.value); S.glob[t.dataset.gnum] = Number.isNaN(v) ? 0 : v; return S.view === 'setup' ? undefined : keep(); }
     if (t.dataset.inst !== undefined) { S.inst = t.value; S.over = {}; S.pin = null; return keep(); }
-    if (t.dataset.steps !== undefined) { setSteps(parseFloat(t.value)); return keep(); }
+    if (t.dataset.steps !== undefined) { setSteps(parseFloat(t.value)); if (S.view === 'setup') { t.value = S.zs.length; return refreshCta(); } return keep(); }
     if (t.dataset.z !== undefined) { const v = parseFloat(t.value); S.zs[+t.dataset.z] = Number.isNaN(v) ? 0 : v; const sy = window.scrollY, sc = $('.scroll'), st = sc ? sc.scrollTop : 0; render(); window.scrollTo(0, sy); const n = $('.scroll'); if (n) n.scrollTop = st; }
   });
-  window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v && v !== S.view) setView(v); });
-  const h0 = location.hash.slice(1); if (VIEWS.some((x) => x[0] === h0)) S.view = h0;
+  window.addEventListener('hashchange', () => { const v = location.hash.slice(1) === 'settings' ? 'setup' : location.hash.slice(1); if (v && v !== S.view) setView(v); });
+  const h0 = location.hash.slice(1) === 'settings' ? 'setup' : location.hash.slice(1);
+  if (VIEWS.some((x) => x[0] === h0)) { S.view = h0; S.ran = h0 !== 'setup'; }   // a deep link to a result view skips the setup step
   render();
 })();
 </script>

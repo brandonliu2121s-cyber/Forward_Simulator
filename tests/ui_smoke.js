@@ -5,18 +5,18 @@ const { chromium } = require('playwright');
   const b = await chromium.launch({ ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}) });
   const pg = await b.newPage({ viewport: { width: 1280, height: 900 } });
   const errs = []; pg.on('pageerror', (e) => errs.push(e.message)); pg.on('console', (m) => m.type() === 'error' && errs.push(m.text()));
-  await pg.goto('file://'+require('path').resolve(__dirname,'../dashboard/index.html')); await pg.waitForTimeout(400);
+  await pg.goto('file://'+require('path').resolve(__dirname,'../dashboard/index.html#desk')); await pg.waitForTimeout(400);
   const txt = (s) => pg.locator(s).first().innerText();
   const ok = (name, cond) => console.log((cond ? 'PASS' : 'FAIL') + '  ' + name);
   const pnl0 = await txt('.left .big');
-  // 1. Settings override: spread 5 -> 12 ticks changes P&L and shows override styling
-  await pg.click('.nav button:has-text("Settings")');
+  // 1. Setup override: spread 5 -> 12 ticks changes P&L and shows override styling
+  await pg.click('.nav button:has-text("Setup")');
   await pg.fill('#f-spread_ticks', '12'); await pg.dispatchEvent('#f-spread_ticks', 'change'); await pg.waitForTimeout(200);
   ok('override gets orange class', (await pg.getAttribute('#f-spread_ticks', 'class')) === 'ov');
   await pg.click('.nav button:has-text("Desk")'); await pg.waitForTimeout(200);
   ok('P&L changes after spread override', (await txt('.left .big')) !== pnl0);
   // 2. reset
-  await pg.click('.nav button:has-text("Settings")'); await pg.click('button:has-text("Reset to defaults")');
+  await pg.click('.nav button:has-text("Setup")'); await pg.click('button:has-text("Reset to defaults")');
   await pg.click('.nav button:has-text("Desk")'); await pg.waitForTimeout(150);
   ok('reset restores P&L', (await txt('.left .big')) === pnl0);
   // 3. range + metric
@@ -112,13 +112,13 @@ const { chromium } = require('playwright');
   // ---------- downloads capability path (as inside the Claude artifact viewer) ----------
   const pc = await b.newPage({ viewport: { width: 1100, height: 800 } });
   await pc.addInitScript(() => { window.__saves = []; window.claude = { use: async (n) => (n === 'downloads' ? { save: async (r) => { window.__saves.push(r); return { status: 'saved' }; } } : null) }; });
-  await pc.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html')); await pc.waitForTimeout(300);
+  await pc.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html#desk')); await pc.waitForTimeout(300);
   await pc.click('button[aria-label="Import or export data"]'); await pc.click('button[data-act="dlgdl"]'); await pc.waitForTimeout(200);
   const saves = await pc.evaluate(() => window.__saves);
   ok('download goes through the downloads capability when present', saves.length === 1 && saves[0].filename === 'forward-desk_usd-sgd_run.csv' && saves[0].data.startsWith('step,move_sigma'));
   const pd = await b.newPage({ viewport: { width: 1100, height: 800 } });
   await pd.addInitScript(() => { window.claude = { use: async () => null }; });
-  await pd.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html')); await pd.waitForTimeout(300);
+  await pd.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html#desk')); await pd.waitForTimeout(300);
   await pd.click('button[aria-label="Import or export data"]');
   const [dl2] = await Promise.all([pd.waitForEvent('download', { timeout: 5000 }).catch(() => null), pd.click('button[data-act="dlgdl"]')]);
   ok('falls back to a browser download when the capability is unavailable', !!dl2 && dl2.suggestedFilename() === 'forward-desk_usd-sgd_run.csv');
@@ -126,7 +126,7 @@ const { chromium } = require('playwright');
   const scaleOf = (el) => el.evaluate((n) => { const m = getComputedStyle(n).transform; return m === 'none' ? 1 : parseFloat(m.slice(7)); });
   const fresh = await b.newPage({ viewport: { width: 1280, height: 900 } });
   await fresh.addInitScript(() => { window.__t = []; });
-  await fresh.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html')); await fresh.waitForTimeout(150);
+  await fresh.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html#desk')); await fresh.waitForTimeout(150);
   ok('first load: cards settle in (main.enter present)', (await fresh.locator('main.enter').count()) === 1);
   await fresh.waitForTimeout(500);
   await fresh.click('.nav button:has-text("Pricing")'); await fresh.waitForTimeout(100);
@@ -164,7 +164,7 @@ const { chromium } = require('playwright');
   const sample = (pg, sel, ms) => pg.evaluate(([q, t]) => new Promise((res) => { const out = []; const iv = setInterval(() => { const n = document.querySelector(q); if (n) out.push(+getComputedStyle(n).opacity); }, 16); setTimeout(() => { clearInterval(iv); res(out); }, t); }), [sel, ms]);
   const intro = await b.newPage({ viewport: { width: 1280, height: 900 } });
   await intro.addInitScript(() => { window.__ops = []; const iv = setInterval(() => { const n = document.querySelector('main > :first-child'); if (n) window.__ops.push(+getComputedStyle(n).opacity); }, 16); setTimeout(() => clearInterval(iv), 900); });
-  await intro.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html')); await intro.waitForTimeout(1000);
+  await intro.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html#desk')); await intro.waitForTimeout(1000);
   const ops = await intro.evaluate(() => window.__ops);
   ok('first-load stagger actually runs: card fades 0 -> 1 over the first frames', Math.min(...ops) < 0.9 && ops[ops.length - 1] === 1);
   await fresh.keyboard.press('Escape');   // the toast test above left the dialog open
@@ -181,13 +181,28 @@ const { chromium } = require('playwright');
   await fresh.keyboard.press('Escape');
   // reduced motion: gentler, not zero. Press movement is removed.
   const rm = await b.newContext({ reducedMotion: 'reduce', viewport: { width: 1280, height: 900 } }); const rp = await rm.newPage();
-  await rp.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html')); await rp.waitForTimeout(300);
+  await rp.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html#desk')); await rp.waitForTimeout(300);
   const rpill = rp.locator('.pill:has-text("Filters")'); const rb = await rpill.boundingBox(); await rp.mouse.move(rb.x + rb.width / 2, rb.y + rb.height / 2); await rp.mouse.down(); await rp.waitForTimeout(260);
   ok('reduced motion: no press scaling', Math.abs((await scaleOf(rpill)) - 1) < 0.005); await rp.mouse.up();
   // hover is gated: in a touch context no hover rule applies
   const touch = await b.newContext({ hasTouch: true, isMobile: true, viewport: { width: 400, height: 860 } }); const tp = await touch.newPage();
-  await tp.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html')); await tp.waitForTimeout(300);
+  await tp.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html#desk')); await tp.waitForTimeout(300);
   ok('touch device: (hover: hover) is false so hover styles are inert', !(await tp.evaluate(() => matchMedia('(hover: hover) and (pointer: fine)').matches)));
+  // front page: inputs first, results only after Run
+  const fp = await b.newPage({ viewport: { width: 1280, height: 900 } }); const ferrs = []; fp.on('pageerror', (e) => ferrs.push(String(e)));
+  await fp.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html')); await fp.waitForTimeout(300);
+  ok('opens on Setup with the inputs and a Run button', (await fp.locator('.nav button[aria-current="page"]').innerText()) === 'Setup' && (await fp.locator('#f-spread_ticks').count()) === 1 && (await fp.locator('button.run').count()) >= 1);
+  ok('Setup is the first tab', (await fp.locator('.nav button').first().innerText()) === 'Setup');
+  ok('no chart or advice before Run', (await fp.locator('#plot').count()) === 0 && (await fp.locator('.insight').count()) === 0);
+  await fp.click('.nav button:has-text("Pricing")'); await fp.waitForTimeout(100);
+  ok('result tabs show a gate until Run', (await fp.locator('.gate').count()) === 1 && (await fp.locator('table.recipe').count()) === 0);
+  await fp.click('.gate button'); await fp.waitForTimeout(100);
+  // edit a field then click Run straight away: the field must not swallow the click
+  await fp.fill('#f-spread_ticks', '9'); await fp.click('button.run >> nth=0'); await fp.waitForTimeout(500);
+  ok('one click on Run (straight from a field) opens the Desk with chart and advice', (await fp.locator('.nav button[aria-current="page"]').innerText()) === 'Desk' && (await fp.locator('#plot').count()) === 1 && (await fp.locator('.insight').count()) >= 1);
+  await fp.click('.nav button:has-text("Setup")'); ok('the entered input was kept', (await fp.inputValue('#f-spread_ticks')) === '9');
+  ok('after a run the button reads Update results', (await fp.locator('button.run').first().innerText()) === 'Update results');
+  ok('front page: no page errors', ferrs.length === 0);
   console.log('page errors:', JSON.stringify(errs));
   await b.close();
 })();
