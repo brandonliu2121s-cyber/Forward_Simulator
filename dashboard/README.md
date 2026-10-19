@@ -42,6 +42,8 @@ Motion follows Emil Kowalski's design-engineering guidance ([emilkowalski/skill]
 | Hover styles fired on touch taps | Wrapped in `(hover: hover) and (pointer: fine)` | Touch devices fire false hovers |
 | Reduced-motion users got the same movement | Transforms removed, fades kept | Fewer and gentler, not zero |
 
+**Chart reveal.** After **Run simulation**, and again whenever any input, instrument or scenario changes, the visuals build up slowly (about 1.5 s in total) so the change is easy to follow: the P&L line and area wipe in left to right, the key numbers count up to their exact values, the limit-usage bars rise one after another, the risk gauge sweeps, watchlist sparklines draw, health ticks light up and the insight lines fade in. On Pricing the derivation rows and skew-ladder bars build in. It plays once per change, not on every tab visit or toggle (peak/end, range, metric), and it uses Web Animations so nothing lingers afterwards. With reduced motion the visuals simply fade in over 250 ms and numbers are exact straight away.
+
 Deliberately **not** animated: the view content swapping when you change tabs (only the tab pill moves), keyboard-initiated actions (Escape, Enter), the P&L chart and every number (data being read), and the skew ladder (functional table).
 
 Worst-case handling (Emil's break-ui checklist): long names clip with a tooltip, imported names over 40 characters are shortened with a warning, huge and tiny numbers scale to fit instead of truncating, emoji and CJK names get clean initials, plurals read "1 fill" / "2 fills", and no view scrolls sideways down to 320px.

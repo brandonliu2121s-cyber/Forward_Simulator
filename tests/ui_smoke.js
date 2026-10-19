@@ -6,7 +6,8 @@ const { chromium } = require('playwright');
   const pg = await b.newPage({ viewport: { width: 1280, height: 900 } });
   const errs = []; pg.on('pageerror', (e) => errs.push(e.message)); pg.on('console', (m) => m.type() === 'error' && errs.push(m.text()));
   await pg.goto('file://'+require('path').resolve(__dirname,'../dashboard/index.html#desk')); await pg.waitForTimeout(400);
-  const txt = (s) => pg.locator(s).first().innerText();
+  const settled = (page) => page.waitForFunction(() => !document.documentElement.dataset.reveal, null, { timeout: 8000 });   // chart reveal + number count-up finished
+  const txt = async (s) => { await settled(pg); return pg.locator(s).first().innerText(); };
   const ok = (name, cond) => console.log((cond ? 'PASS' : 'FAIL') + '  ' + name);
   const pnl0 = await txt('.left .big');
   // 1. Setup override: spread 5 -> 12 ticks changes P&L and shows override styling
@@ -203,6 +204,26 @@ const { chromium } = require('playwright');
   await fp.click('.nav button:has-text("Setup")'); ok('the entered input was kept', (await fp.inputValue('#f-spread_ticks')) === '9');
   ok('after a run the button reads Update results', (await fp.locator('button.run').first().innerText()) === 'Update results');
   ok('front page: no page errors', ferrs.length === 0);
+  // chart reveal: the visuals build up slowly after Run and whenever the inputs change, then settle on the exact final values
+  const rv = await b.newPage({ viewport: { width: 1280, height: 900 } }); const rerrs = []; rv.on('pageerror', (e) => rerrs.push(String(e)));
+  await rv.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html')); await rv.waitForTimeout(250);
+  await rv.click('button.run >> nth=0'); await rv.waitForTimeout(350);
+  const mid = await rv.evaluate(() => ({ series: document.querySelector('#series').getAnimations().length, clip: getComputedStyle(document.querySelector('#series')).clipPath, pnl: document.querySelector('.left .big').textContent, bars: document.querySelectorAll('.bar .fill').length && document.querySelector('.bar .fill').getAnimations().length }));
+  ok('line chart is mid-reveal 350ms after Run (clip-path animating)', mid.series >= 1 && mid.clip !== 'none');
+  ok('limit-usage bars animate', mid.bars >= 1);
+  await settled(rv); const fin = await rv.evaluate(() => ({ pnl: document.querySelector('.left .big').textContent, clip: getComputedStyle(document.querySelector('#series')).clipPath, anim: document.getAnimations().length }));
+  ok('numbers count up and land on the exact final value', mid.pnl !== fin.pnl && /1,928\.13/.test(fin.pnl));
+  ok('everything is cleaned up afterwards (no lingering clip or animations)', fin.clip === 'none' && fin.anim === 0);
+  await rv.click('.pill:has-text("Peak")'); await rv.waitForTimeout(200);
+  ok('toggling a view option does not replay the reveal', (await rv.evaluate(() => document.documentElement.dataset.reveal)) === undefined);
+  await rv.click('button[aria-label="New random scenario"]'); await rv.waitForTimeout(300);
+  ok('new scenario replays the reveal', (await rv.evaluate(() => document.querySelector('#series').getAnimations().length)) >= 1);
+  await settled(rv);
+  const rr = await b.newContext({ reducedMotion: 'reduce', viewport: { width: 1280, height: 900 } }); const rrp = await rr.newPage();
+  await rrp.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html')); await rrp.waitForTimeout(250);
+  await rrp.click('button.run >> nth=0'); await rrp.waitForTimeout(120);
+  ok('reduced motion: no wipe or count-up, numbers are exact straight away', (await rrp.evaluate(() => getComputedStyle(document.querySelector('#series')).clipPath)) === 'none' && /1,928\.13/.test(await rrp.locator('.left .big').innerText()));
+  ok('reveal: no page errors', rerrs.length === 0);
   console.log('page errors:', JSON.stringify(errs));
   await b.close();
 })();

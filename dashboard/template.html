@@ -482,7 +482,7 @@ const DATA = /*__DATA__*/;
   const VIEWS = [['setup', 'Setup'], ['desk', 'Desk'], ['pricing', 'Pricing'], ['instruments', 'Instruments'], ['activity', 'Activity']];
   const RESULT_VIEWS = { desk: 'Desk', pricing: 'Pricing', instruments: 'Instruments', activity: 'Activity' };
   const S = {
-    view: 'setup', ran: false, inst: D.default, over: {}, glob: Object.assign({}, D.globals),
+    view: 'setup', ran: false, fresh: {}, sig: '', inst: D.default, over: {}, glob: Object.assign({}, D.globals),
     zs: D.scenario.zs.slice(), acts: D.scenario.actions.slice(), seed: D.scenario.seed, seedNote: 'Excel scenario',
     range: 0, metric: 'pnl', pin: null, barMode: 'peak', barTable: false, clips: 2, search: '', pop: null,
     intro: true, popAnim: false, tabAnim: false,
@@ -490,6 +490,8 @@ const DATA = /*__DATA__*/;
   let C = null;
 
   function compute() {
+    const sig = JSON.stringify([S.inst, S.over, S.glob, S.zs, S.acts, D.instruments]);
+    if (sig !== S.sig) { if (S.sig) S.fresh = { desk: 1, pricing: 1 }; S.sig = sig; }   // inputs changed: the next look at a chart replays its reveal
     const inst = D.instruments.find((i) => i.name === S.inst);
     const mk = (i) => Object.assign({}, i.params, i.name === S.inst ? S.over : {}, S.glob);
     const p = mk(inst);
@@ -571,10 +573,10 @@ const DATA = /*__DATA__*/;
     const inner = [cx + (r - 22) * Math.cos(th), cy - (r - 22) * Math.sin(th)], needle = [cx + (r - 70) * Math.cos(th), cy - (r - 70) * Math.sin(th)];
     return `<svg viewBox="0 0 300 160" role="img" aria-label="Risk score ${score} out of 100"><path d="M${a[0]} ${a[1]} A${r} ${r} 0 0 1 ${z[0]} ${z[1]}" fill="none" stroke="#1f1f1f" stroke-width="30" stroke-linecap="round"/>
       <path d="M${a[0]} ${a[1]} A${r} ${r} 0 0 1 ${z[0]} ${z[1]}" fill="none" stroke="#2a2a2a" stroke-width="1" stroke-dasharray="2 5"/>
-      ${score > 0 ? `<path d="M${a[0]} ${a[1]} A${r} ${r} 0 0 1 ${b[0]} ${b[1]}" fill="none" stroke="${col}" stroke-width="30" stroke-linecap="round"/>` : ''}
+      ${score > 0 ? `<path class="g-arc" pathLength="1" d="M${a[0]} ${a[1]} A${r} ${r} 0 0 1 ${b[0]} ${b[1]}" fill="none" stroke="${col}" stroke-width="30" stroke-linecap="round"/>` : ''}
       <circle cx="${a[0]}" cy="${a[1]}" r="13" fill="#3a3a3a" stroke="#121212" stroke-width="3"/>
-      <line x1="${inner[0]}" y1="${inner[1]}" x2="${needle[0]}" y2="${needle[1]}" stroke="#d8d8d8" stroke-width="1.5" opacity="0.7"/>
-      <circle cx="${b[0]}" cy="${b[1]}" r="12" fill="#fff" stroke="#121212" stroke-width="3"/></svg>`;
+      <line class="g-end" x1="${inner[0]}" y1="${inner[1]}" x2="${needle[0]}" y2="${needle[1]}" stroke="#d8d8d8" stroke-width="1.5" opacity="0.7"/>
+      <circle class="g-end" cx="${b[0]}" cy="${b[1]}" r="12" fill="#fff" stroke="#121212" stroke-width="3"/></svg>`;
   }
 
   function riskCard() {
@@ -682,9 +684,9 @@ const DATA = /*__DATA__*/;
       <defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.34"/><stop offset="1" stop-color="#fff" stop-opacity="0.02"/></linearGradient>
       <linearGradient id="band" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.26"/><stop offset="1" stop-color="#fff" stop-opacity="0.04"/></linearGradient>
       <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(135)"><line x1="0" y1="0" x2="0" y2="6" stroke="#fff" stroke-opacity="0.2" stroke-width="1"/></pattern></defs>
-      ${grid}${xl}${bands}<path d="${area}" fill="url(#ag)"/><path d="${area}" fill="url(#hatch)"/>
+      ${grid}${xl}<g id="series">${bands}<path d="${area}" fill="url(#ag)"/><path d="${area}" fill="url(#hatch)"/>
       <path d="${line}" fill="none" stroke="#ffe08a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>${dots}
-      <circle cx="${e[0].toFixed(1)}" cy="${e[1].toFixed(1)}" r="4.5" fill="#ffe08a" stroke="#df4a24" stroke-width="2"/>
+      <circle cx="${e[0].toFixed(1)}" cy="${e[1].toFixed(1)}" r="4.5" fill="#ffe08a" stroke="#df4a24" stroke-width="2"/></g>
       <line id="xh" y1="${m.t}" y2="${H - m.b}" stroke="#fff" stroke-opacity="0.55" stroke-width="1" visibility="hidden"/><circle id="xd" r="5" fill="#fff" stroke="#df4a24" stroke-width="2" visibility="hidden"/>
       <rect class="hit" x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H - m.b}" fill="transparent"/></svg><div class="tip" id="tip" hidden></div>`;
     drawn = { vals, start, last, X, Y, m, W, H, pnl };
@@ -1001,18 +1003,68 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
   }
 
   // ------------------------------------------------------------------ render + events
-  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => requestAnimationFrame(drawHero)) : null;
+  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => requestAnimationFrame(() => { const el = $('#plot'); if (el && (!drawn || Math.max(260, el.clientWidth) !== drawn.W || Math.max(200, el.clientHeight) !== drawn.H)) drawHero(); })) : null;   // the observer's first callback must not redraw (it would cut the reveal short)
   function render() {
     compute();
     const v = (!S.ran && S.view !== 'setup' ? viewGate : { setup: viewSetup, desk: viewDesk, pricing: viewPricing, instruments: viewInstruments, activity: viewActivity }[S.view])();
     $('#app').innerHTML = header() + '<main class="' + (S.intro ? 'enter' : '') + '" style="display:grid;gap:12px">' + v + '</main><div class="foot">Illustrative levels, simulated clients and a simplified model. Educational use only, not trading advice.</div>';
     S.intro = false; S.popAnim = false; S.tabAnim = false;
+    const play = S.ran && S.fresh[S.view]; if (play) S.fresh[S.view] = false;
     if (ro) ro.disconnect();
     if (S.view === 'desk' && S.ran) {
       drawHero();
       if (ro) ro.observe($('#plot'));
       const sel = $('.wl-item[aria-current="true"]');
       if (sel) { const wl = $('#wl'); wl.scrollLeft = Math.max(0, sel.offsetLeft - wl.offsetLeft - 8); }
+    }
+    if (play) playReveal(S.view);
+  }
+
+  /* ---- chart reveal: after Run, and whenever the inputs change, the visuals build up slowly so the change is easy to follow.
+     Web Animations (compositor-friendly, cancelled when finished). Reduced motion: a short fade, no wipes and no count-up. */
+  const REVEAL_EASE = 'cubic-bezier(0.77, 0, 0.175, 1)', REVEAL_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
+  function countUp(el, ms, delay) {
+    const nodes = [], w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n; (n = w.nextNode());) {
+      const txt = n.nodeValue, toks = [];
+      txt.replace(/\d[\d,]*(?:\.\d+)?/g, (m, i) => { toks.push({ i, m, v: parseFloat(m.replace(/,/g, '')), dec: (m.split('.')[1] || '').length, grp: m.includes(',') }); return m; });
+      if (toks.length && txt.length < 24 && !/e\+/.test(txt) && toks.every((t) => Number.isFinite(t.v))) nodes.push({ n, txt, toks });
+    }
+    if (!nodes.length) return;
+    const fmt = (t, x) => { const f = x.toFixed(t.dec); return t.grp ? Number(f).toLocaleString('en-US', { minimumFractionDigits: t.dec, maximumFractionDigits: t.dec }) : f; };
+    const t0 = performance.now() + delay;
+    const tick = (now) => {
+      const k = Math.min(1, Math.max(0, (now - t0) / ms)), e = 1 - Math.pow(1 - k, 3);
+      nodes.forEach(({ n, txt, toks }) => { let out = '', at = 0; toks.forEach((t) => { out += txt.slice(at, t.i) + (k >= 1 ? t.m : fmt(t, t.v * e)); at = t.i + t.m.length; }); n.nodeValue = out + txt.slice(at); });
+      if (k < 1) requestAnimationFrame(tick);
+    };
+    nodes.forEach(({ n, toks, txt }) => { let out = '', at = 0; toks.forEach((t) => { out += txt.slice(at, t.i) + fmt(t, 0); at = t.i + t.m.length; }); n.nodeValue = out + txt.slice(at); });
+    requestAnimationFrame(tick);
+  }
+  let revealTimer = 0;
+  function playReveal(view) {
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const root = document.documentElement; root.dataset.reveal = 'on'; clearTimeout(revealTimer);
+    revealTimer = setTimeout(() => { delete root.dataset.reveal; }, reduce ? 500 : 3200);   // lets tests (and anything else) know when the numbers have settled
+    const go = (el, frames, o) => { if (!el || !el.animate) return; const a = el.animate(frames, Object.assign({ fill: 'both', easing: REVEAL_OUT }, o)); a.onfinish = () => { try { a.cancel(); } catch (_) {} }; return a; };
+    const fade = { opacity: [0, 1] };
+    const wipe = (el, ms, delay, ease) => reduce ? go(el, [{ opacity: 0 }, { opacity: 1 }], { duration: 250 })
+      : go(el, [{ clipPath: 'inset(-6px 100% -6px -6px)' }, { clipPath: 'inset(-6px -8px -6px -6px)' }], { duration: ms, delay, easing: ease || REVEAL_EASE });
+    const rise = (els, delay, step) => els.forEach((el, i) => go(el, reduce ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: reduce ? 250 : 500, delay: reduce ? 0 : delay + i * step }));
+    if (view === 'desk') {
+      wipe($('#series'), 1300, 150);
+      [...document.querySelectorAll('.wl-item .spark')].forEach((el, i) => wipe(el, 900, 250 + i * 70));
+      [...document.querySelectorAll('.bar .fill')].forEach((el, i) => reduce ? go(el, [{ opacity: 0 }, { opacity: 1 }], { duration: 250 })
+        : go(el, [{ clipPath: 'inset(100% 0 0 0)' }, { clipPath: 'inset(0 0 0 0)' }], { duration: 900, delay: 350 + i * 110 }));
+      rise([...document.querySelectorAll('.bar .above')], 900, 110);
+      const arc = $('.g-arc'); if (arc) { if (reduce) go(arc, [{ opacity: 0 }, { opacity: 1 }], { duration: 250 }); else go(arc, [{ strokeDasharray: '0 1' }, { strokeDasharray: '1 0' }], { duration: 1100, delay: 450, easing: REVEAL_EASE }); }
+      [...document.querySelectorAll('.g-end')].forEach((el) => go(el, [{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: reduce ? 0 : 1300 }));
+      rise([...document.querySelectorAll('.health i.on')], 200, 22);
+      rise([...document.querySelectorAll('.insight .body p, .insight .evchip')], 1000, 160);
+      if (!reduce) [...document.querySelectorAll('.left .big, .tile.kpi .val, #hero-val, .risk .score b, .health b')].forEach((el, i) => countUp(el, 1400, 120 + (i % 5) * 40));
+    } else if (view === 'pricing') {
+      rise([...document.querySelectorAll('table.recipe tr, table.t tbody tr')], 120, reduce ? 0 : 35);
+      if (!reduce) [...document.querySelectorAll('.ubar i')].forEach((el, i) => { el.style.transformOrigin = el.style.left ? 'left' : 'right'; go(el, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: 700, delay: 300 + i * 40 }); });
     }
   }
   const setView = (v) => { if (VIEWS.some((x) => x[0] === v)) { S.view = v; S.pop = null; try { history.replaceState(null, '', '#' + v); } catch (_) {} render(); window.scrollTo(0, 0); } };
@@ -1032,7 +1084,7 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
     if (!t) { if (S.pop && !e.target.closest('.pop')) { S.pop = null; render(); } return; }
     const a = t.dataset.act;
     if (a === 'data' || a.startsWith('dlg')) return dialogClick(a, t, e);
-    if (a === 'run') { S.ran = true; S.intro = e.detail !== 0; S.pin = null; S.pop = null; return setView('desk'); }   // results pop in with the first-load stagger; keyboard-initiated: instant
+    if (a === 'run') { S.ran = true; S.intro = true; S.fresh = { desk: 1, pricing: 1 }; S.pin = null; S.pop = null; return setView('desk'); }   // results pop in with the stagger and the chart reveal (Run is a deliberate one-off, so keyboard use animates too)
     if (a === 'view') { S.tabAnim = e.detail !== 0 && t.dataset.v !== S.view; return setView(t.dataset.v); }   // keyboard-initiated: no animation
     if (a === 'pop') { S.pop = S.pop === t.dataset.id ? null : t.dataset.id; S.popAnim = e.detail !== 0; return render(); }   // keyboard-initiated: no animation
     if (a === 'inst') { S.inst = t.dataset.name; S.over = {}; S.pin = null; S.pop = null; if (t.dataset.go) S.view = t.dataset.go; render(); return; }
