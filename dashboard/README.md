@@ -48,6 +48,10 @@ Deliberately **not** animated: the view content swapping when you change tabs (o
 
 Worst-case handling (Emil's break-ui checklist): long names clip with a tooltip, imported names over 40 characters are shortened with a warning, huge and tiny numbers scale to fit instead of truncating, emoji and CJK names get clean initials, plurals read "1 fill" / "2 fills", and no view scrolls sideways down to 320px.
 
+## Live prices (optional, local server)
+
+Served by `python3 server/app.py`, the dashboard starts each instrument from the newest stored live quote instead of the built-in illustrative level, and the Pricing page says so ("Live quote, as of ..."). The Setup page has a **Live prices** card with a "Use live spots" switch and a **Refresh now** button; on open it fetches fresh quotes once if none are stored or the newest is over six hours old. Quotes are delayed and unofficial, interest rates are still manual, and a saved run stores your overrides but not the spot, so loading it later starts from whatever spot is current. Without the server the page keeps the illustrative levels and never goes online.
+
 ## Saved runs (optional local database)
 
 Run `python3 server/app.py` and open http://127.0.0.1:8000/. The Setup page then has a **Saved runs** card: name a setup and save it, load it later, delete it. Runs are stored in a SQLite file on your machine (`data/forward_desk.db`). Without the server (opened as a file, or the published artifact) nothing changes and the page stays fully static. See [`server/README.md`](../server/README.md).

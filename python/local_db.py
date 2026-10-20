@@ -143,6 +143,14 @@ class Database:
             self._db.commit()
         return stored
 
+    def latest_snapshots(self):
+        """-> {instrument: {spot, ts, source, fetched_at}} with the newest quote for each instrument."""
+        with self._lock:
+            rows = self._db.execute(
+                "select instrument, ts, spot, source, fetched_at from ("
+                " select *, row_number() over (partition by instrument order by ts desc, id desc) as rn from price_snapshots) where rn = 1").fetchall()
+        return {r["instrument"]: dict(spot=r["spot"], ts=r["ts"], source=r["source"], fetched_at=r["fetched_at"]) for r in rows}
+
     def snapshots(self, instrument=None, limit=500):
         sql, args = "select instrument, ts, spot, source from price_snapshots", []
         if instrument:

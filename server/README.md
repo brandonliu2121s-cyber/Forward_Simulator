@@ -7,6 +7,7 @@ Python standard library only: nothing to install, no accounts, nothing leaves yo
 python3 server/app.py                     # then open http://127.0.0.1:8000/
 python3 server/app.py --port 0            # pick any free port
 python3 server/app.py --auto-refresh 60   # also store live quotes every hour while it runs
+python3 server/app.py --no-fetch-on-open  # the dashboard will not fetch prices by itself when it opens
 ```
 
 Your data lives in `data/forward_desk.db` (ignored by git). Delete the file to start fresh; copy it to back up.
@@ -15,6 +16,7 @@ Your data lives in `data/forward_desk.db` (ignored by git). Delete the file to s
 
 | Where | What |
 | --- | --- |
+| Setup page, **Live prices** card | the dashboard uses the newest stored quote for each instrument as its starting spot (toggle "Use live spots", button "Refresh now"). When you open it and nothing is stored, or the newest quote is over six hours old, the server fetches fresh quotes once for that visit. Quotes far from the library level (a bad feed value) are ignored. Interest rates are not live and stay as set |
 | Setup page, **Saved runs** card | name a setup and save it, load it later, delete it (two clicks). Appears only when the page is served by this server; opened as a plain file the dashboard works exactly as before |
 | `GET /api/snapshots?instrument=Gold&limit=100` | the live-price history |
 | `POST /api/snapshots/refresh` | fetch live quotes now and store them (Yahoo by default; `{"provider": "frankfurter"}` for ECB FX fixings) |
@@ -26,7 +28,8 @@ JSON over HTTP on `127.0.0.1`.
 
 | Method and path | Result |
 | --- | --- |
-| `GET /api/health` | `{"ok": true, "version": 1, "runs": N}` |
+| `GET /api/health` | `{"ok": true, "version": 1, "runs": N, "fetch_on_open": true}` |
+| `GET /api/prices/latest` | `{"prices": {"USD/SGD": {spot, ts, source, fetched_at}}}`, the newest quote per instrument |
 | `GET /api/runs` | `{"runs": [{id, name, instrument, created_at, summary}]}`, newest first |
 | `POST /api/runs` | body `{name, instrument, session, summary}` (the dashboard's session JSON) gives `201 {"run": ...}` |
 | `GET /api/runs/<id>` | `{"run": {..., "session": {...}}}` |

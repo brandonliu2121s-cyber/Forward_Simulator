@@ -96,6 +96,16 @@ class Snapshots(unittest.TestCase):
         self.assertEqual([r["spot"] for r in g], [2005, 2004, 2003])
         self.assertEqual(len(self.db.snapshots()), 6)
 
+    def test_latest_is_the_newest_quote_per_instrument(self):
+        self.db.add_snapshots([dict(instrument="Gold", ts="2026-10-01T00:00:00Z", spot=2000, source="a"),
+                               dict(instrument="Gold", ts="2026-10-03T00:00:00Z", spot=2100, source="a"),
+                               dict(instrument="Gold", ts="2026-10-02T00:00:00Z", spot=2050, source="a"),
+                               dict(instrument="Silver", ts="2026-10-01T00:00:00Z", spot=30, source="b")])
+        latest = self.db.latest_snapshots()
+        self.assertEqual({k: v["spot"] for k, v in latest.items()}, {"Gold": 2100, "Silver": 30})
+        self.assertEqual(latest["Gold"]["ts"], "2026-10-03T00:00:00Z")
+        self.assertEqual(ldb.Database(":memory:").latest_snapshots(), {})
+
     def test_non_positive_spot_is_never_stored(self):
         self.assertEqual(self.db.add_snapshots([dict(instrument="x", ts="2026-10-01T00:00:00Z", spot=0, source="t"),
                                                 dict(instrument="x", ts="2026-10-02T00:00:00Z", spot=-3, source="t")]), 0)

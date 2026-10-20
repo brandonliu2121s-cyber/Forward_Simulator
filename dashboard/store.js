@@ -10,7 +10,8 @@ const Store = (() => {
     const fetchFn = deps.fetch || (typeof fetch !== 'undefined' ? fetch.bind(globalThis) : null);
     const proto = 'protocol' in deps ? deps.protocol : (typeof location !== 'undefined' ? location.protocol : '');
     const timeout = deps.timeout || 1500;
-    if (!fetchFn || !/^https?:$/.test(proto)) return { enabled: false, probe: async () => false };
+    let info = null;   // what /api/health said last time
+    if (!fetchFn || !/^https?:$/.test(proto)) return { enabled: false, probe: async () => false, info: () => null };
 
     async function call(path, method, body) {
       let res;
@@ -26,6 +27,7 @@ const Store = (() => {
 
     return {
       enabled: true,
+      info: () => info,
       /* true when a Forward Desk server answers on this origin */
       async probe() {
         const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -33,9 +35,14 @@ const Store = (() => {
         try {
           const res = await fetchFn('/api/health', ctl ? { signal: ctl.signal } : {});
           const d = res.ok ? JSON.parse(await res.text()) : null;
-          return !!(d && d.ok === true);
+          info = d && d.ok === true ? d : null;
+          return !!info;
         } catch (_) { return false; } finally { if (timer) clearTimeout(timer); }
       },
+      /* newest stored quote per instrument: { 'USD/SGD': { spot, ts, source, fetched_at } } */
+      async prices() { const d = await call('/api/prices/latest', 'GET'); return d.prices && typeof d.prices === 'object' ? d.prices : {}; },
+      /* ask the server to fetch live quotes now and store them -> { stored, quotes, failed } */
+      async refreshPrices(provider) { return call('/api/snapshots/refresh', 'POST', { provider: provider || 'yahoo' }); },
       async list() { const d = await call('/api/runs', 'GET'); return Array.isArray(d.runs) ? d.runs : []; },
       async save(run) {
         const name = String(run.name || '').trim().slice(0, 80);

@@ -9,6 +9,8 @@ function fake() {
     db.calls.push({ path, method: init.method || 'GET', body: init.body, headers: init.headers });
     if (db.down) throw new TypeError('connection refused');
     if (path === '/api/health') return db.healthOk ? res(200, { ok: true, version: 1 }) : res(404, { error: 'Not found.' });
+    if (path === '/api/prices/latest') return res(200, { prices: { 'USD/SGD': { spot: 1.3, ts: '2026-10-19T14:30:00Z', source: 'y' } } });
+    if (path === '/api/snapshots/refresh') return res(200, { stored: 3, quotes: 3, failed: 1, provider: JSON.parse(init.body).provider });
     if (path === '/api/runs' && init.method === 'GET') return res(200, { runs: db.runs.map(({ session, ...r }) => r) });
     if (path === '/api/runs' && init.method === 'POST') { const b = JSON.parse(init.body); const r = { id: db.runs.length + 1, created_at: '2026-10-19T00:00:00Z', ...b }; db.runs.unshift(r); return res(201, { run: r }); }
     const m = path.match(/^\/api\/runs\/(\d+)$/);
@@ -77,6 +79,13 @@ let n = 0; const t = async (name, fn) => { await fn(); n++; console.log('PASS  '
     await assert.rejects(() => bad.list(), /refused the request \(500\)/);
     const msg = Store.create({ fetch: async () => ({ ok: false, status: 400, text: async () => JSON.stringify({ error: 'Name is required.' }) }), protocol: 'http:' });
     await assert.rejects(() => msg.save({ name: 'x', instrument: 'y', session: {} }), /Name is required/);
+  });
+
+  await t('prices() and refreshPrices() talk to the price endpoints', async () => {
+    const f = fake(), s = Store.create({ fetch: f.fn, protocol: 'http:' });
+    assert.strictEqual((await s.prices())['USD/SGD'].spot, 1.3);
+    assert.deepStrictEqual(await s.refreshPrices(), { stored: 3, quotes: 3, failed: 1, provider: 'yahoo' });
+    assert.strictEqual((await s.refreshPrices('frankfurter')).provider, 'frankfurter');
   });
 
   console.log(`${n} store checks passed`);

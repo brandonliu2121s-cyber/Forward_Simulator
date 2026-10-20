@@ -228,7 +228,8 @@ const { chromium } = require('playwright');
   {
     const cp = require('child_process'), os = require('os'), fs = require('fs'), path = require('path');
     const root = path.resolve(__dirname, '..'), dbFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'fd-')), 'smoke.db');
-    const srv = cp.spawn('python3', [path.join(root, 'server', 'app.py'), '--port', '0', '--db', dbFile], { stdio: ['ignore', 'pipe', 'pipe'] });
+    cp.execFileSync('python3', ['-c', `import sys, datetime; sys.path.insert(0,'python'); import local_db as d; db=d.Database(${JSON.stringify(dbFile)}); now=datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'); db.add_snapshots([dict(instrument='USD/SGD', ts=now, spot=1.30, source='test'), dict(instrument='Gold', ts=now, spot=9.9, source='bad-feed')]); db.close()`], { cwd: root });   // a good quote and an implausible one
+    const srv = cp.spawn('python3', [path.join(root, 'server', 'app.py'), '--port', '0', '--db', dbFile, '--no-fetch-on-open'], { stdio: ['ignore', 'pipe', 'pipe'] });
     const base = await new Promise((resolve, reject) => {
       let buf = ''; const timer = setTimeout(() => reject(new Error('server did not start: ' + buf)), 8000);
       srv.stdout.on('data', (d) => { buf += d; const m = buf.match(/http:\/\/127\.0\.0\.1:\d+\//); if (m) { clearTimeout(timer); resolve(m[0]); } });
@@ -239,6 +240,22 @@ const { chromium } = require('playwright');
       await spg.goto(base); await spg.waitForTimeout(500);
       ok('served by the local server: the saved-runs card appears', (await spg.locator('.saved').count()) === 1 && /Nothing saved yet/.test(await spg.locator('.saved').innerText()));
       ok('opened as a plain file the card is absent (no server to talk to)', (await fp.locator('.saved').count()) === 0);
+      // live prices stored by the server feed the dashboard
+      ok('live card shows the stored quote count and ignores the implausible one', /1 of 14 instruments have a usable quote/.test(await spg.locator('.live').innerText()) && /ignored/.test(await spg.locator('.live').innerText()));
+      ok('setup default for USD/SGD spot is the live quote', (await spg.getAttribute('#f-spot_init', 'placeholder')) === '1.3');
+      await spg.click('.nav button:has-text("Pricing")'); await spg.waitForTimeout(150);
+      ok('before Run, results stay gated even with live prices', (await spg.locator('.gate').count()) === 1);
+      await spg.click('.gate button'); await spg.click('button.run >> nth=0'); await spg.waitForTimeout(300);
+      await spg.click('.nav button:has-text("Pricing")'); await spg.waitForTimeout(1800);
+      ok('Pricing derives from the live spot and says so', /1\.3000/.test(await spg.locator('table.recipe').innerText()) && /Live quote/.test(await spg.locator('table.recipe').innerText()));
+      await spg.click('.nav button:has-text("Setup")'); await spg.uncheck('[data-livetoggle]'); await spg.click('.nav button:has-text("Pricing")'); await spg.waitForTimeout(1800);
+      ok('switching live spots off returns to the library level', /1\.2850/.test(await spg.locator('table.recipe').innerText()) && !/Live quote/.test(await spg.locator('table.recipe').innerText()));
+      await spg.reload(); await spg.waitForTimeout(600);
+      ok('the live-spots preference is remembered across reloads', (await spg.locator('[data-livetoggle]').count()) === 0 || !(await spg.isChecked('[data-livetoggle]')));
+      await spg.goto(base); await spg.waitForTimeout(500);
+      if (!(await spg.isChecked('[data-livetoggle]'))) await spg.check('[data-livetoggle]');
+      await spg.click('button[data-act="liverefresh"]'); await spg.waitForTimeout(3500);
+      ok('Refresh now reports an outcome (fetched, or a readable error when offline)', (await spg.locator('.live .note').innerText()).trim().length > 0);
       await spg.fill('#f-spread_ticks', '9'); await spg.fill('#sv-name', 'Wide spread'); await spg.press('#sv-name', 'Enter'); await spg.waitForTimeout(500);
       ok('Enter in the name field saves; the run is listed with its instrument', /Wide spread/.test(await spg.locator('.runs').innerText()) && /USD\/SGD/.test(await spg.locator('.runs').innerText()));
       const stored = JSON.parse(cp.execFileSync('python3', ['-c', `import sys,json; sys.path.insert(0,'python'); import local_db as d; db=d.Database(${JSON.stringify(dbFile)}); r=db.list_runs(); print(json.dumps(db.get_run(r[0]['id'])))`], { cwd: root }).toString());

@@ -88,6 +88,12 @@ class Api(ServerCase):
         s, body, _ = self.req("POST", "/api/runs", raw="x" * 10, headers={"Content-Length": str(app.MAX_BODY + 1)})
         self.assertEqual(s, 413)
 
+    def test_latest_prices_endpoint_and_fetch_on_open_flag(self):
+        self.db.add_snapshots([dict(instrument="Copper", ts="2026-10-19T14:30:00Z", spot=9500.5, source="t")])
+        s, body, _ = self.req("GET", "/api/prices/latest")
+        self.assertEqual((s, body["prices"]["Copper"]["spot"], body["prices"]["Copper"]["ts"]), (200, 9500.5, "2026-10-19T14:30:00Z"))
+        self.assertIs(self.req("GET", "/api/health")[1]["fetch_on_open"], True)
+
     def test_snapshots_refresh_and_read(self):
         s, body, _ = self.req("POST", "/api/snapshots/refresh", {"provider": "yahoo"})
         self.assertEqual((s, body["stored"], body["quotes"], body["failed"]), (200, 1, 1, 1))
@@ -127,6 +133,20 @@ class Security(ServerCase):
     def test_a_hostile_name_is_returned_as_data(self):
         s, body, _ = self.req("POST", "/api/runs", {"name": "<script>alert(1)</script>", "instrument": "x", "session": {}})
         self.assertEqual(body["run"]["name"], "<script>alert(1)</script>")
+
+
+class FetchOnOpenOff(unittest.TestCase):
+    def test_health_reports_it(self):
+        db = Database(":memory:")
+        srv = app.make_server(db, "127.0.0.1", 0, fetch_on_open=False, page=lambda: "x")
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            c = http.client.HTTPConnection("127.0.0.1", srv.server_address[1], timeout=5)
+            c.request("GET", "/api/health", headers={"Host": f"127.0.0.1:{srv.server_address[1]}"})
+            self.assertIs(json.loads(c.getresponse().read())["fetch_on_open"], False)
+        finally:
+            srv.shutdown()
+            srv.server_close()
 
 
 class Refresh(unittest.TestCase):

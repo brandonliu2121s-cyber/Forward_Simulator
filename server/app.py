@@ -8,7 +8,7 @@ It listens on the loopback address only and has no accounts: anyone who can reac
 Requests are checked against DNS-rebinding and cross-site attacks (Host and Origin must be this server, JSON bodies only).
 Educational use only: delayed, unofficial prices and a simplified model; not for trading decisions.
 
-API (JSON):  GET /api/health  ·  GET/POST /api/runs  ·  GET/DELETE /api/runs/<id>  ·  GET /api/snapshots?instrument=&limit=
+API (JSON):  GET /api/health  ·  GET /api/prices/latest  ·  GET/POST /api/runs  ·  GET/DELETE /api/runs/<id>  ·  GET /api/snapshots?instrument=&limit=
              POST /api/snapshots/refresh {"provider": "yahoo" | "frankfurter"}
 """
 import argparse
@@ -39,7 +39,7 @@ def refresh_prices(db, provider="yahoo", fetch_all=live_data.fetch_all):
     return dict(stored=db.add_snapshots(snapshot_rows(quotes)), quotes=ok, failed=len(quotes) - ok, provider=provider)
 
 
-def make_server(db, host="127.0.0.1", port=8000, fetch_all=live_data.fetch_all, page=None):
+def make_server(db, host="127.0.0.1", port=8000, fetch_all=live_data.fetch_all, page=None, fetch_on_open=True):
     if host not in LOOPBACK:
         raise ValueError("The local server only listens on the loopback address (127.0.0.1).")
     page = page or (lambda: build_dashboard.standalone(build_dashboard.fragment()))
@@ -112,7 +112,9 @@ def make_server(db, host="127.0.0.1", port=8000, fetch_all=live_data.fetch_all, 
             if url.path in ("/", "/index.html"):
                 return self._send(200, page().encode("utf-8"), "text/html; charset=utf-8")
             if url.path == "/api/health":
-                return self._send(200, {"ok": True, "version": 1, "runs": db.count_runs()})
+                return self._send(200, {"ok": True, "version": 1, "runs": db.count_runs(), "fetch_on_open": bool(fetch_on_open)})
+            if url.path == "/api/prices/latest":
+                return self._send(200, {"prices": db.latest_snapshots()})
             if url.path == "/api/runs":
                 return self._send(200, {"runs": db.list_runs()})
             m = RUN_ID.match(url.path)
@@ -174,11 +176,12 @@ def main(argv=None):
     ap.add_argument("--host", default="127.0.0.1", help="loopback only (default 127.0.0.1)")
     ap.add_argument("--port", type=int, default=8000, help="0 picks a free port")
     ap.add_argument("--db", default=DEFAULT_PATH, help="SQLite file (default data/forward_desk.db)")
+    ap.add_argument("--no-fetch-on-open", action="store_true", help="the dashboard will not fetch fresh prices when it opens (it still shows stored ones)")
     ap.add_argument("--auto-refresh", type=float, metavar="MINUTES", help="store live quotes every MINUTES while the server runs")
     a = ap.parse_args(argv)
     db = Database(a.db)
     try:
-        srv = make_server(db, a.host, a.port)
+        srv = make_server(db, a.host, a.port, fetch_on_open=not a.no_fetch_on_open)
     except (ValueError, OSError) as exc:
         print(f"Could not start: {exc}", file=sys.stderr)
         return 1
