@@ -204,6 +204,40 @@ const { chromium } = require('playwright');
   await fp.click('.nav button:has-text("Setup")'); ok('the entered input was kept', (await fp.inputValue('#f-spread_ticks')) === '9');
   ok('after a run the button reads Update results', (await fp.locator('button.run').first().innerText()) === 'Update results');
   ok('front page: no page errors', ferrs.length === 0);
+  // ---- load the Setup inputs from a CSV file
+  {
+    const fs = require('fs'), os = require('os'), path = require('path');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fd-setup-'));
+    const good = path.join(dir, 'my setup.csv'), bad = path.join(dir, 'bad.csv'), hdr = path.join(dir, 'row.csv');
+    fs.writeFileSync(good, 'setting,value\ninstrument,EUR/USD\nspread_ticks,9\nrate_a,4%\nrate_b,0.55\ntenor_days,30\nsteps,80\nhedge_target_pct,50\nhalt_on_loss,no\nfavourite_colour,blue\n');
+    fs.writeFileSync(bad, 'setting,value\nspread_ticks,abc\nsteps,5\n');
+    fs.writeFileSync(hdr, 'Spread (ticks),Quote size (units)\n6,100000\n');
+    const sp = await b.newPage({ viewport: { width: 1280, height: 900 } }); const serr = []; sp.on('pageerror', (e) => serr.push(String(e)));
+    await sp.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html')); await sp.waitForSelector('#f-spread_ticks');
+    ok('Setup offers Load setup from CSV and a CSV template', (await sp.locator('button[data-act="setupfile"]').count()) === 1 && (await sp.locator('button[data-act="setuptemplate"]').count()) === 1);
+    await sp.setInputFiles('#setup-file', good); await sp.waitForTimeout(400);
+    ok('the CSV fills the instrument and inputs, marking them as overridden', (await sp.inputValue('#f-inst')) === 'EUR/USD' && (await sp.inputValue('#f-spread_ticks')) === '9' && (await sp.getAttribute('#f-spread_ticks', 'class')) === 'ov' && (await sp.inputValue('#f-tenor_days')) === '30');
+    ok('percent-style rates are read sensibly (4% -> 4, 0.55 -> 0.55%)', (await sp.inputValue('#f-rate_a')) === '4' && (await sp.inputValue('#f-rate_b')) === '0.55');
+    ok('steps, residual hedge and the stop-out switch are set too', (await sp.inputValue('#f-steps')) === '80' && (await sp.inputValue('#g-hp')) === '50' && !(await sp.isChecked('[data-glob="halt_on_loss"]')));
+    const note = await sp.locator('.page-head + p.note').innerText();
+    ok('the page says what it loaded and what it ignored', /Loaded 7 settings/.test(note) && /favourite_colour/.test(note) && /0\.55/.test(note));
+    await sp.setInputFiles('#setup-file', bad); await sp.waitForTimeout(300);
+    ok('a file with bad values changes nothing and explains why', (await sp.inputValue('#f-spread_ticks')) === '9' && /Nothing was changed/.test(await sp.locator('.page-head + p.note').innerText()) && /spread_ticks must be a number/.test(await sp.locator('.page-head + p.note').innerText()));
+    await sp.setInputFiles('#setup-file', hdr); await sp.waitForTimeout(300);
+    ok('a header row plus one row also works and leaves other inputs alone', (await sp.inputValue('#f-spread_ticks')) === '6' && (await sp.inputValue('#f-clip')) === '100000' && (await sp.inputValue('#f-tenor_days')) === '30');
+    await sp.click('button.run >> nth=0'); await sp.waitForTimeout(500); await sp.click('.nav button:has-text("Pricing")'); await sp.waitForTimeout(1800);
+    ok('the results use the loaded setup', /spread 6\.0 ticks/.test(await sp.locator('section.hero').innerText()) && /EUR\/USD/.test(await sp.locator('h2').first().innerText()));
+    await sp.click('.nav button:has-text("Setup")');
+    const dl = sp.waitForEvent('download'); await sp.click('button[data-act="setuptemplate"]'); const d = await dl;
+    const txt = fs.readFileSync(await d.path(), 'utf8');
+    ok('the CSV template is a setting,value file of the current inputs that loads straight back', /^setting,value/.test(txt) && /instrument,EUR\/USD/.test(txt) && /spread_ticks,6/.test(txt) && /_setup\.csv$/.test(d.suggestedFilename()));
+    await sp.click('button[data-act="resetover"]'); await sp.setInputFiles('#setup-file', { name: 'again.csv', mimeType: 'text/csv', buffer: Buffer.from(txt) }); await sp.waitForTimeout(300);
+    ok('loading the template back restores the same inputs', (await sp.inputValue('#f-spread_ticks')) === '6' && (await sp.inputValue('#f-inst')) === 'EUR/USD' && !/Nothing was changed/.test(await sp.locator('.page-head + p.note').innerText()));
+    await sp.setInputFiles('#setup-file', { name: 'junk.csv', mimeType: 'text/csv', buffer: Buffer.from('hello world\nthis is not a setup') }); await sp.waitForTimeout(300);
+    ok('an unrelated file gets a clear message', /Could not recognise/.test(await sp.locator('.page-head + p.note').innerText()));
+    ok('setup load: no page errors', serr.length === 0);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
   // chart reveal: the visuals build up slowly after Run and whenever the inputs change, then settle on the exact final values
   const rv = await b.newPage({ viewport: { width: 1280, height: 900 } }); const rerrs = []; rv.on('pageerror', (e) => rerrs.push(String(e)));
   await rv.goto('file://' + require('path').resolve(__dirname, '../dashboard/index.html')); await rv.waitForTimeout(250);

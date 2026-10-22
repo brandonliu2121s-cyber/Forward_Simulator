@@ -11,6 +11,17 @@ Open `index.html` in a browser. It is one self-contained file (HTML, CSS and Jav
 
 Scores: **Health** = share of steps quoting live. **Risk score** (0 to 100, higher is safer) = half inventory headroom plus half loss headroom, minus 4 per position-limit hedge and 10 per loss stop-out; the card also shows what inventory skew was worth against the same run with zero skew.
 
+## Load your setup from a CSV
+
+On the Setup page, **Load setup from CSV** fills the inputs from a file; **CSV template** downloads your current inputs in the right format (an example is `dashboard/sample_setup.csv`).
+
+- **Two columns**, `setting,value`, one input per row; or **a header row plus one row of values** (the Excel Instruments sheet headers such as `Spread (ticks)` work). Delimiters `,` `;` and tab are detected. Flat JSON also works.
+- **Settings**: `instrument`, `steps`, `spot_init` (or `spot`), `rate_a`, `rate_b`, `basis_a`, `basis_b`, `tenor_days`, `tick`, `clip`, `spread_ticks`, `max_skew_ticks`, `pos_limit`, `loss_limit`, `hedge_cost_ticks`, `step_vol_ticks`, `hedge_target_pct`, `halt_on_loss` (yes/no), `start_pos`.
+- **Only what is stated changes**: blank cells and settings not in the file stay as they are, so a file with one row (say `spread_ticks`) just changes that input. Loading a different `instrument` starts from that instrument's defaults. An unknown instrument keeps the current one and says so.
+- **Rates**: `4%`, `4` and `0.04` all mean four percent, and `0.55` means 0.55% (a plain number of 0.2 or more is read as a percent); the page tells you whenever it had to guess.
+- **Safe by design**: any bad value (not a number, out of range, steps outside 10 to 500) stops the load, nothing is half-applied, and every problem is listed. Unknown columns are named and ignored. Files over 2 MB are refused and nothing is evaluated.
+- A scenario CSV, an instrument library or a session file chosen here is handled by the normal importer.
+
 ## Import and export (CSV and JSON)
 
 | Export | Formats | Notes |

@@ -497,7 +497,7 @@ const DATA = /*__DATA__*/;
   const VIEWS = [['setup', 'Setup'], ['desk', 'Desk'], ['pricing', 'Pricing'], ['instruments', 'Instruments'], ['activity', 'Activity']];
   const RESULT_VIEWS = { desk: 'Desk', pricing: 'Pricing', instruments: 'Instruments', activity: 'Activity' };
   const S = {
-    view: 'setup', ran: false, fresh: {}, sig: '', live: { use: true, prices: {}, busy: false, note: '', fetchOnOpen: false }, saved: { on: false, runs: null, busy: false, note: '', name: '', confirm: null }, inst: D.default, over: {}, glob: Object.assign({}, D.globals),
+    view: 'setup', ran: false, fresh: {}, sig: '', live: { use: true, prices: {}, busy: false, note: '', fetchOnOpen: false }, setupNote: '', saved: { on: false, runs: null, busy: false, note: '', name: '', confirm: null }, inst: D.default, over: {}, glob: Object.assign({}, D.globals),
     zs: D.scenario.zs.slice(), acts: D.scenario.actions.slice(), seed: D.scenario.seed, seedNote: 'Excel scenario',
     range: 0, metric: 'pnl', pin: null, barMode: 'peak', barTable: false, clips: 2, search: '', pop: null,
     intro: true, popAnim: false, tabAnim: false,
@@ -809,7 +809,8 @@ const DATA = /*__DATA__*/;
     };
     const opts = D.instruments.map((i) => `<option ${i.name === S.inst ? 'selected' : ''}>${esc(i.name)}</option>`).join('');
     const runBtn = `<button class="btn orange run" data-act="run">${S.ran ? 'Update results' : 'Run simulation'}</button>`;
-    return `<div class="page-head"><div><h2>${S.ran ? 'Setup' : 'Set up your simulation'}</h2><p>${S.ran ? 'Change any input, then update the results.' : 'Pick an instrument, adjust any inputs, then run. Charts, pricing and advice appear on the Desk.'} Leave a field blank to use the ${esc(S.inst)} default.</p></div><span style="flex:1"></span><button class="btn" data-act="data" data-tab="import" data-what="session">Import / Export</button><button class="btn" data-act="resetover">Reset to defaults</button>${runBtn}</div>
+    return `<div class="page-head"><div><h2>${S.ran ? 'Setup' : 'Set up your simulation'}</h2><p>${S.ran ? 'Change any input, then update the results.' : 'Pick an instrument, adjust any inputs, then run. Charts, pricing and advice appear on the Desk.'} Leave a field blank to use the ${esc(S.inst)} default.</p></div><span style="flex:1"></span><button class="btn" data-act="setupfile" title="Fill in the inputs below from a CSV file">Load setup from CSV</button><input type="file" id="setup-file" data-setupfile accept=".csv,.json,.txt,text/csv,application/json,text/plain" hidden aria-label="Choose a CSV file with your setup"><button class="btn" data-act="setuptemplate" title="Download your current inputs as a CSV you can edit and load back">CSV template</button><button class="btn" data-act="data" data-tab="import" data-what="session">Import / Export</button><button class="btn" data-act="resetover">Reset to defaults</button>${runBtn}</div>
+      <p class="muted note" role="status" aria-live="polite" style="margin:-4px 0 0;overflow-wrap:anywhere">${S.setupNote ? esc(S.setupNote) : 'Tip: load a CSV to fill the inputs for you. Use two columns (setting, value) or a header row with one row of values. Press CSV template to see the format.'}</p>
       <div class="cols"><section class="card"><h3>Scenario</h3><div class="grid2" style="margin-top:12px"><div class="field"><label for="f-inst">Instrument</label><select id="f-inst" data-inst>${opts}</select></div>
         <div class="field"><label for="f-steps">Steps</label><input id="f-steps" type="number" min="10" max="500" step="1" value="${S.zs.length}" data-steps><small>10 to 500 client RFQs</small></div></div>
         <p class="muted" style="margin:14px 0 8px">Scenario: <b style="color:var(--ink)">${esc(S.seedNote)}</b>${S.seed == null || S.seedNote.startsWith('Excel') ? '' : ' #' + S.seed}</p>
@@ -1028,6 +1029,36 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
     fr.onerror = () => { DL.parsed = { kind: null, errors: ['Could not read that file.'], warnings: [] }; renderPreview(); };
     fr.readAsText(file);
   }
+  /* Setup page: fill the inputs from a CSV (or JSON) file. Stated values replace the matching inputs; anything not stated stays as it is. */
+  function loadSetupFile(file) {
+    if (!file) return;
+    if (file.size > IO.MAX_BYTES) { S.setupNote = 'That file is over 2 MB, which is more than this tool will read.'; return render(); }
+    const fr = new FileReader();
+    fr.onerror = () => { S.setupNote = 'Could not read that file.'; render(); };
+    fr.onload = () => {
+      const r = IO.parseSetup(String(fr.result), file.name), nm = String(file.name).slice(0, 40);
+      if (!r.kind || r.errors.length) { S.setupNote = `${nm}: ${r.errors.slice(0, 3).join(' ')}${r.errors.length > 3 ? ` (+${r.errors.length - 3} more)` : ''} Nothing was changed.`; toast('Could not load that file.'); return render(); }
+      if (r.kind === 'setup') {
+        const notes = r.warnings.slice();
+        if (r.instrument) {
+          const inst = D.instruments.find((i) => i.name === r.instrument);
+          if (inst) { if (S.inst !== inst.name) S.over = {}; S.inst = inst.name; S.pin = null; }
+          else notes.push(`Instrument "${r.instrument}" is not in the library, so ${S.inst} was kept.`);
+        }
+        Object.assign(S.over, r.overrides); Object.assign(S.glob, r.globals);
+        if (r.steps) setSteps(r.steps);
+        const got = Object.keys(r.overrides).length + Object.keys(r.globals).length + (r.steps ? 1 : 0);
+        S.setupNote = `Loaded ${plural(got, 'setting', 'settings')} from ${nm}${r.instrument && D.instruments.some((i) => i.name === r.instrument) ? ` for ${r.instrument}` : ''}. ${notes.join(' ')}`.trim();
+        toast(`Setup loaded from ${nm}`); return render();
+      }
+      DL.parsed = r; applyImport(); S.setupNote = `Loaded ${nm} (${r.kind}).`; render();   // session, scenario or instrument library: the normal importer
+    };
+    fr.readAsText(file);
+  }
+  function setupTemplate() {
+    const text = IO.exportSetupCSV({ instrument: S.inst, steps: S.zs.length, params: C.p, globals: S.glob });
+    return download({ name: `forward-desk_${slug(S.inst)}_setup.csv`, text, mime: 'text/csv' });
+  }
   const scenarioSetter = (sc, note) => { S.zs = sc.zs.slice(); S.acts = sc.acts.slice(); S.seed = sc.seed == null ? null : sc.seed; S.seedNote = note; S.pin = null; };
   function applyImport() {
     const r = DL.parsed; if (!r || !r.kind) return;
@@ -1194,6 +1225,8 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
     const a = t.dataset.act;
     if (a === 'data' || a.startsWith('dlg')) return dialogClick(a, t, e);
     if (a === 'liverefresh') return liveRefresh(false);
+    if (a === 'setupfile') { const f = $('#setup-file'); if (f) f.click(); return; }
+    if (a === 'setuptemplate') return setupTemplate();
     if (a === 'savedsave') return savedSave();
     if (a === 'savedload') return savedLoad(t.dataset.id);
     if (a === 'saveddel') {
@@ -1247,6 +1280,7 @@ Session (JSON)      The "Full session" export. Restores instrument, overrides, s
   document.addEventListener('change', (e) => {
     const t = e.target, keep = () => { const sy = window.scrollY; render(); window.scrollTo(0, sy); };
     if (t.dataset.file !== undefined) { readFile(t.files && t.files[0]); return; }
+    if (t.dataset.setupfile !== undefined) { const f = t.files && t.files[0]; t.value = ''; loadSetupFile(f); return; }
     if (t.dataset.field) {
       const k = t.dataset.field, raw = t.value.trim(), v = parseFloat(raw);
       if (raw === '' || Number.isNaN(v)) delete S.over[k]; else S.over[k] = t.dataset.pct ? v / 100 : v;

@@ -144,5 +144,66 @@ t('hostile input: prototype keys, reserved names, bad overrides, formula-looking
   assert.ok(lib.instruments[0].name.startsWith('=HYPERLINK'), 'guard prefix stripped on re-import');
   assert.ok(IO.exportLibraryCSV([Object.assign({}, fx, { name: '=HYPERLINK("http://evil")' })]).includes("\"'=HYPERLINK"), 'guard applied on export');
 });
+
+// ---- Setup file (the Setup page's "Load setup from CSV")
+t('setup csv: vertical setting,value rows fill params, globals, steps and instrument', () => {
+  const r = IO.parseSetup('setting,value\r\ninstrument,EUR/USD\r\nspot,1.17\r\nspread_ticks,8\r\nrate_a,4%\r\nrate_b,0.0055\r\ntenor_days,30\r\nsteps,80\r\nhedge_target_pct,50%\r\nhalt_on_loss,no\r\nopening_position,250000\r\n');
+  assert.strictEqual(r.kind, 'setup'); assert.deepStrictEqual(r.errors, []);
+  assert.strictEqual(r.instrument, 'EUR/USD'); assert.strictEqual(r.steps, 80);
+  assert.deepStrictEqual(r.overrides, { spot_init: 1.17, spread_ticks: 8, rate_a: 0.04, rate_b: 0.0055, tenor_days: 30 });
+  assert.deepStrictEqual(r.globals, { hedge_target_pct: 0.5, halt_on_loss: 0, start_pos: 250000 });
+});
+t('setup csv: a header row with one data row, headers as written in the Excel sheet', () => {
+  const r = IO.parseSetup('Instrument,Spot,Spread (ticks),Position limit (units),Tenor (days)\nUSD/SGD,1.3,6,2000000,60\n');
+  assert.deepStrictEqual(r.overrides, { spot_init: 1.3, spread_ticks: 6, pos_limit: 2000000, tenor_days: 60 }); assert.strictEqual(r.instrument, 'USD/SGD');
+});
+t('setup csv: semicolon delimiter, quoted thousands, extra rows noted, blanks skipped', () => {
+  const r = IO.parseSetup('setting;value\nclip;"250,000"\nloss_limit;\nspread_ticks;7\n');
+  assert.deepStrictEqual(r.overrides, { clip: 250000, spread_ticks: 7 });
+  const w = IO.parseSetup('spread_ticks,tick\n5,0.0001\n9,0.0002\n');
+  assert.deepStrictEqual(w.overrides, { spread_ticks: 5, tick: 0.0001 }); assert.ok(w.warnings.some((x) => /only the first/.test(x)));
+});
+t('setup csv: rates mean what people write (4, 4%, 0.04, 0.55) and say when they guessed', () => {
+  const r = IO.parseSetup('setting,value\nrate_a,4\nrate_b,0.55\n');
+  assert.deepStrictEqual(r.overrides, { rate_a: 0.04, rate_b: 0.0055 }); assert.strictEqual(r.warnings.length, 2);
+  const f = IO.parseSetup('setting,value\nrate_a,0.04\nrate_b,0.5%\n');
+  assert.deepStrictEqual(f.overrides, { rate_a: 0.04, rate_b: 0.005 }); assert.strictEqual(f.warnings.length, 0);
+  assert.strictEqual(IO.parseSetup('setting,value\nhedge_target_pct,0.25\n').globals.hedge_target_pct, 0.25);
+  assert.strictEqual(IO.parseSetup('setting,value\nhedge_target_pct,25\n').globals.hedge_target_pct, 0.25);
+});
+t('setup csv: bad values are all reported and nothing is half-applied', () => {
+  const r = IO.parseSetup('setting,value\nspread_ticks,abc\nrate_a,500\nsteps,5\ntenor_days,-3\nhalt_on_loss,maybe\nspot,0\nmax_skew_ticks,-1\n');
+  assert.strictEqual(r.errors.length, 7);
+  assert.ok(r.errors.some((x) => /steps/.test(x)) && r.errors.some((x) => /halt_on_loss/.test(x)));
+});
+t('setup csv: unknown columns are listed and ignored; a file with nothing usable fails clearly', () => {
+  const r = IO.parseSetup('setting,value\nspread_ticks,7\nfavourite_colour,blue\n');
+  assert.deepStrictEqual(r.overrides, { spread_ticks: 7 }); assert.ok(r.warnings.some((x) => /favourite_colour/.test(x)));
+  assert.ok(IO.parseSetup('setting,value\nfavourite_colour,blue\n').errors.length === 1);
+  assert.ok(IO.parseSetup('foo,bar\n1,2\n').errors[0].includes('Could not recognise'));
+  assert.ok(IO.parseSetup('').errors.length && IO.parseSetup('x').errors.length);
+});
+t('setup csv: duplicates keep the last value and say so; formula-looking and oversized cells are harmless', () => {
+  const r = IO.parseSetup('setting,value\nspread_ticks,5\nspread_ticks,9\ninstrument,"=HYPERLINK(""http://evil"")"\n');
+  assert.strictEqual(r.overrides.spread_ticks, 9); assert.ok(r.warnings.some((x) => /more than once/.test(x)));
+  assert.ok(r.instrument.startsWith('=HYPERLINK'));                                   // only ever matched against the library, never evaluated
+  assert.ok(IO.parseSetup('a'.repeat(3 * 1024 * 1024)).errors[0].includes('2 MB'));
+});
+t('setup: flat JSON works, and sessions, scenarios and libraries still route to the normal importer', () => {
+  const j = IO.parseSetup('{"instrument":"Gold","spread_ticks":6,"halt_on_loss":true,"steps":120}');
+  assert.strictEqual(j.kind, 'setup'); assert.deepStrictEqual(j.overrides, { spread_ticks: 6 }); assert.strictEqual(j.globals.halt_on_loss, 1); assert.strictEqual(j.steps, 120);
+  assert.strictEqual(IO.parseSetup(IO.exportScenarioCSV(Z.slice(0, 20), A.slice(0, 20))).kind, 'scenario');
+  assert.strictEqual(IO.parseSetup(IO.exportLibraryCSV([LIB[0]])).kind, 'library');
+  assert.strictEqual(IO.parseSetup(IO.exportScenarioJSON({ seed: 1, note: 'x', zs: Z.slice(0, 20), acts: A.slice(0, 20) })).kind, 'scenario');
+  assert.ok(IO.parseSetup('{"a":').errors[0].includes('not valid'));
+});
+t('setup template round-trips: exportSetupCSV -> parseSetup gives back the same inputs', () => {
+  const p = LIB[0].params, csv = IO.exportSetupCSV({ instrument: LIB[0].name, steps: 60, params: p, globals: { hedge_target_pct: 0.25, halt_on_loss: 1, start_pos: 0 } });
+  const r = IO.parseSetup(csv);
+  assert.deepStrictEqual(r.errors, []); assert.strictEqual(r.instrument, LIB[0].name); assert.strictEqual(r.steps, 60);
+  for (const k of IO.PARAM_KEYS) close(r.overrides[k], p[k], k);
+  assert.deepStrictEqual(r.globals, { hedge_target_pct: 0.25, halt_on_loss: 1, start_pos: 0 });
+  assert.strictEqual(r.warnings.length, 0, r.warnings.join(' '));                        // fractions written by the template are not "guessed"
+});
 console.log(`${n - failed}/${n} io tests passed`);
 process.exit(failed ? 1 : 0);

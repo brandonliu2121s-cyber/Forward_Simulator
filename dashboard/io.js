@@ -255,6 +255,101 @@ const IO = (function () {
     return fail('Could not recognise the columns. A scenario needs "move" and "action" columns; a library needs name, type, unit, spot, rate_a, rate_b and the other instrument columns.');
   }
 
+  // ------------------------------------------------------------------ Setup file: the inputs of the Setup page
+  // Accepted: a two-column CSV (setting,value), a CSV with a header row plus one data row, a flat JSON object, or any file the normal importer
+  // understands (session, scenario, instrument library). Blank cells are skipped; values that are not stated are left as they are.
+  const SETUP_ALIAS = Object.assign({}, ALIAS, {
+    commodity: 'name', pair: 'name', symbol: 'name', market: 'name',
+    steps: 'steps', numberofsteps: 'steps', rfqs: 'steps', numberofrfqs: 'steps', clientrfqs: 'steps', scenariosteps: 'steps',
+    hedgetargetpct: 'hedge_target_pct', hedgetarget: 'hedge_target_pct', residual: 'hedge_target_pct', residualafterlimithedge: 'hedge_target_pct',
+    residualafterlimithedgeoflimit: 'hedge_target_pct', startpos: 'start_pos', openingposition: 'start_pos', startposition: 'start_pos',
+    haltonloss: 'halt_on_loss', halt: 'halt_on_loss', stopout: 'halt_on_loss', losslimitstopout: 'halt_on_loss', haltquotingafterabreach: 'halt_on_loss',
+  });
+  const KEY_COLS = ['setting', 'settings', 'parameter', 'parameters', 'field', 'key', 'input', 'inputs', 'variable'];
+  const VAL_COLS = ['value', 'values', 'val', 'setto'];
+  const YES = ['1', 'yes', 'y', 'true', 'on', 'halt'], NO = ['0', 'no', 'n', 'false', 'off'];
+
+  function setupFromPairs(pairs, extraWarnings) {
+    const errors = [], warnings = (extraWarnings || []).slice(), overrides = {}, globals = {};
+    let instrument = null, steps = null, ignored = [], count = 0;
+    const seen = new Set();
+    for (const [rawKey, rawVal] of pairs) {
+      const label = cleanTxt(rawKey, 30), key = SETUP_ALIAS[norm(rawKey)];
+      const val = typeof rawVal === 'string' ? rawVal.trim() : rawVal;
+      if (val === '' || val == null) continue;                                  // blank: leave the setting alone
+      if (!key) { if (label && ignored.length < 6) ignored.push(label); continue; }
+      if (key === 'type' || key === 'unit' || key === 'pnl' || key === 'note') { if (ignored.length < 6) ignored.push(label); continue; }
+      if (key === 'name') { instrument = cleanName(val); count++; continue; }
+      const n = num(val), written = String(val), pctSign = written.trim().endsWith('%');
+      if (seen.has(key)) warnings.push(`${label || key} appears more than once; the last value was used.`);
+      seen.add(key);
+      if (key === 'steps') {
+        if (!Number.isFinite(n) || n !== Math.round(n) || n < 10 || n > MAX_STEPS) errors.push(`steps must be a whole number from 10 to ${MAX_STEPS} (got "${written.slice(0, 20)}").`);
+        else { steps = n; count++; }
+        continue;
+      }
+      if (key === 'halt_on_loss') {
+        const w = written.trim().toLowerCase();
+        if (YES.includes(w)) globals.halt_on_loss = 1; else if (NO.includes(w)) globals.halt_on_loss = 0;
+        else { errors.push(`halt_on_loss must be yes or no (got "${written.slice(0, 20)}").`); continue; }
+        count++; continue;
+      }
+      if (!Number.isFinite(n)) { errors.push(`${label || key} must be a number (got "${written.slice(0, 20)}").`); continue; }
+      if (key === 'hedge_target_pct') {
+        const f = !pctSign && n > 1 ? n / 100 : n;                              // 50 and 50% and 0.5 all mean half of the limit
+        if (f < 0 || f > 1) errors.push(`hedge_target_pct must be between 0% and 100% (got "${written.slice(0, 20)}").`); else { globals.hedge_target_pct = f; count++; }
+        continue;
+      }
+      if (key === 'start_pos') { globals.start_pos = n; count++; continue; }
+      if (RATE_KEYS.includes(key)) {
+        // 4%, 4 and 0.04 all mean four percent; 0.55 means 0.55% (a plain number of 0.2 or more is read as a percent, below that as a fraction)
+        const asPct = !pctSign && Math.abs(n) >= 0.2, f = asPct ? r12(n / 100) : n;
+        if (!(f > -0.5 && f < 1)) errors.push(`${key} = ${written.slice(0, 20)} is outside -50%..100%. Write 4%, 0.04 or 4.`);
+        else { overrides[key] = f; count++; if (asPct) warnings.push(`${key}: read ${written.slice(0, 12)} as ${written.slice(0, 12)}%.`); }
+        continue;
+      }
+      if (['spot_init', 'tick', 'clip', 'pos_limit', 'loss_limit', 'tenor_days', 'basis_a', 'basis_b'].includes(key)) {
+        if (!(n > 0)) { errors.push(`${key} must be greater than 0 (got "${written.slice(0, 20)}").`); continue; }
+        if (key === 'tenor_days' && n > 3650) { errors.push('tenor_days is unreasonably large.'); continue; }
+      } else if (n < 0) { errors.push(`${key} cannot be negative (got "${written.slice(0, 20)}").`); continue; }
+      overrides[key] = n; count++;
+    }
+    if (ignored.length) warnings.push(`Ignored unrecognised ${ignored.length === 1 ? 'setting' : 'settings'}: ${ignored.join(', ')}.`);
+    if (!count && !errors.length) errors.push('No settings found in this file. Use a header row such as "setting,value" (see Template), or columns like spot, rate_a, tenor_days.');
+    return { kind: 'setup', instrument, overrides, globals, steps, count, errors, warnings };
+  }
+
+  function parseSetup(text, fileName) {
+    text = String(text == null ? '' : text);
+    if (text.length > MAX_BYTES) return { kind: null, errors: ['That is over 2 MB, which is more than this tool will read.'], warnings: [] };
+    const t = text.trim();
+    if (!t) return { kind: null, errors: ['The file is empty.'], warnings: [] };
+    if (/^[[{]/.test(t)) {
+      let o; try { o = JSON.parse(t); } catch (e) { return { kind: null, errors: ['This looks like JSON but it is not valid: ' + String(e.message).slice(0, 120)], warnings: [] }; }
+      const flat = o && typeof o === 'object' && !Array.isArray(o) && !o.format && !Array.isArray(o.instruments) && !own(o, 'overrides') && !own(o, 'scenario')
+        && Object.keys(o).some((k) => SETUP_ALIAS[norm(k)] && !['type', 'unit', 'pnl', 'note'].includes(SETUP_ALIAS[norm(k)]));
+      if (flat) return setupFromPairs(Object.keys(o).map((k) => [k, typeof o[k] === 'number' || typeof o[k] === 'boolean' ? String(o[k]) : o[k]]));
+      return parseImport(text, fileName);                                      // session, instrument library, scenario
+    }
+    const rows = parseCSV(t);
+    if (rows.length < 2) return { kind: null, errors: ['The CSV needs a header row and at least one data row.'], warnings: [] };
+    const headers = rows[0], norms = headers.map(norm), canon = norms.map((h) => SETUP_ALIAS[h] || null);
+    if (norms.some((h) => h.includes('move') || h.includes('sigma') || h.includes('shock')) && norms.some((h) => h.includes('action'))) return parseImport(text, fileName);   // scenario
+    if (canon.includes('name') && canon.includes('type') && canon.includes('unit')) return parseImport(text, fileName);                                                // library
+    if (KEY_COLS.includes(norms[0]) && VAL_COLS.includes(norms[1])) return setupFromPairs(rows.slice(1).map((r) => [r[0], r[1]]));
+    if (!canon.some((c) => c)) return { kind: null, errors: ['Could not recognise any column. Use "setting,value" rows, or columns such as spot, rate_a, rate_b, tenor_days, spread_ticks.'], warnings: [] };
+    const warn = rows.length > 2 ? [`The file has ${rows.length - 1} data rows; only the first was used.`] : [];
+    return setupFromPairs(headers.map((h, i) => [h, rows[1][i]]), warn);
+  }
+
+  /** The current inputs as a "setting,value" CSV that parseSetup reads back (also serves as the template). */
+  function exportSetupCSV(s) {
+    const rows = [['instrument', s.instrument], ['steps', s.steps]];
+    PARAM_KEYS.forEach((k) => rows.push([k, s.params[k]]));
+    GLOBAL_KEYS.forEach((k) => rows.push([k, s.globals[k]]));
+    return toCSV(['setting', 'value'], rows);
+  }
+
   // ------------------------------------------------------------------ exports
   const RUN_COLS = [['step', 'step'], ['move_sigma', 'z'], ['action', 'act'], ['spot', 'spot'], ['fair_forward', 'fwd'], ['open_position', 'pos_open'],
     ['skew_ticks', 'skew'], ['bid', 'bid'], ['ask', 'ask'], ['fill_units', 'fill'], ['spread_capture', 'edge'], ['mtm', 'mtm'], ['hedge_trigger', 'trigger'],
@@ -276,7 +371,7 @@ const IO = (function () {
     overrides: s.overrides, globals: s.globals, scenario: { seed: s.scenario.seed, note: s.scenario.note, moves: s.scenario.zs, actions: s.scenario.acts },
     summary: s.summary, steps: s.rows.map(runObj) }, null, 2);
 
-  return { parseCSV, toCSV, parseImport, exportRunCSV, exportRunJSON, exportScenarioCSV, exportScenarioJSON, exportLibraryCSV, exportLibraryJSON,
+  return { parseCSV, toCSV, parseImport, parseSetup, exportSetupCSV, exportRunCSV, exportRunJSON, exportScenarioCSV, exportScenarioJSON, exportLibraryCSV, exportLibraryJSON,
     exportSessionJSON, PARAM_KEYS, GLOBAL_KEYS, MAX_STEPS, MAX_BYTES };
 })();
 if (typeof module !== 'undefined') module.exports = IO;
