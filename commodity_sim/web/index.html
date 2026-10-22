@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Commodity Desk</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #0e0e0f; --card: #171819; --raise: #1f2022; --tile: #1b1c1e; --line: rgba(255,255,255,0.08); --line2: rgba(255,255,255,0.14);
+  --ink: #f2f2ee; --ink-2: #a9a9a3; --ink-3: #74746f;
+  --up: #3ddc97; --down: #ff6b6b; --amber: #f5c542; --accent: #e8552f; --blue: #6aa9ff;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body { margin: 0; color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); -webkit-text-size-adjust: 100%; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: 0; padding: 0; }
+.num, td.n, .tile .val { font-variant-numeric: tabular-nums; }
+h1, h2, h3, h4, p { margin: 0; }
+h2 { font-size: 20px; letter-spacing: -0.01em; text-wrap: balance; overflow-wrap: anywhere; }
+h3 { font-size: 15px; font-weight: 600; }
+.muted { color: var(--ink-2); } .dim { color: var(--ink-3); }
+.up { color: var(--up); } .down { color: var(--down); }
+
+.app { max-width: 1240px; margin: 0 auto; padding: 14px 16px 40px; display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+header.top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
+.logo i { width: 28px; height: 28px; border-radius: 9px; background: linear-gradient(145deg, #f08a4b, var(--accent)); display: grid; place-items: center; font-style: normal; font-size: 15px; }
+nav.tabs { display: flex; gap: 2px; padding: 4px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+nav.tabs::-webkit-scrollbar { display: none; }
+nav.tabs button { height: 34px; padding: 0 16px; border-radius: 999px; color: var(--ink-2); font-weight: 500; white-space: nowrap; transition: transform 160ms var(--ease-out), background-color 120ms, color 120ms; }
+nav.tabs button[aria-current="page"] { background: #fff; color: #111; font-weight: 600; }
+@media (hover: hover) and (pointer: fine) { nav.tabs button:hover:not([aria-current]) { color: var(--ink); } }
+.btn { height: 36px; padding: 0 14px; border-radius: 11px; font-weight: 600; border: 1px solid var(--line2); background: var(--tile); transition: transform 160ms var(--ease-out), background-color 120ms; white-space: nowrap; }
+.btn:active, nav.tabs button:active { transform: scale(0.97); }
+@media (hover: hover) and (pointer: fine) { .btn:hover { background: var(--raise); } }
+.btn.primary { background: #fff; color: #111; border-color: #fff; }
+.btn.accent { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.buy { background: var(--up); border-color: var(--up); color: #07140d; }
+.btn.sell { background: var(--down); border-color: var(--down); color: #1a0707; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.small { height: 30px; padding: 0 10px; font-size: 13px; border-radius: 9px; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px; min-width: 0; }
+.card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.sp { flex: 1; }
+.grid { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 980px) { .grid.main { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); } .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tiles { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr)); }
+.tile { background: var(--tile); border: 1px solid var(--line); border-radius: 13px; padding: 10px 12px; min-width: 0; }
+.tile .lab { color: var(--ink-3); font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; }
+.tile .val { font-size: 19px; font-weight: 650; margin-top: 2px; overflow-wrap: anywhere; }
+.tile .sub { color: var(--ink-2); font-size: 12px; overflow-wrap: anywhere; }
+
+/* controls */
+.bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field label { color: var(--ink-3); font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; }
+input[type="text"], input[type="number"], select { height: 36px; background: #0b0b0c; border: 1px solid var(--line2); border-radius: 10px; padding: 0 10px; width: 100%; min-width: 0; }
+select { padding-right: 6px; }
+.row { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr)); }
+.check { display: flex; align-items: center; gap: 8px; color: var(--ink-2); }
+.check input { width: 16px; height: 16px; accent-color: var(--accent); }
+.seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 11px; background: var(--tile); border: 1px solid var(--line); }
+.seg button { height: 30px; padding: 0 12px; border-radius: 8px; color: var(--ink-2); font-weight: 600; }
+.seg button[aria-pressed="true"] { background: #fff; color: #111; }
+.progress { height: 6px; background: var(--raise); border-radius: 99px; overflow: hidden; flex: 1 1 140px; min-width: 100px; }
+.progress i { display: block; height: 100%; background: var(--accent); }
+
+/* signal */
+.pill { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 18px; border-radius: 999px; font-weight: 800; letter-spacing: 0.06em; font-size: 15px; }
+.pill.Buy { background: rgba(61,220,151,0.16); color: var(--up); border: 1px solid rgba(61,220,151,0.5); }
+.pill.Sell { background: rgba(255,107,107,0.16); color: var(--down); border: 1px solid rgba(255,107,107,0.5); }
+.pill.Hold { background: rgba(245,197,66,0.14); color: var(--amber); border: 1px solid rgba(245,197,66,0.45); }
+.chip { display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--raise); color: var(--ink-2); }
+.gauge { position: relative; height: 10px; border-radius: 99px; background: linear-gradient(90deg, rgba(255,107,107,0.35), var(--raise) 40%, var(--raise) 60%, rgba(61,220,151,0.35)); margin: 14px 0 6px; }
+.gauge i { position: absolute; top: -4px; width: 4px; height: 18px; background: #fff; border-radius: 2px; transform: translateX(-2px); transition: left 400ms var(--ease-out); }
+.gauge b { position: absolute; top: -2px; width: 1px; height: 14px; background: var(--ink-3); }
+.votes { display: grid; gap: 10px; margin-top: 12px; }
+.vote .top { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
+.vbar { position: relative; height: 6px; background: var(--raise); border-radius: 99px; margin: 5px 0; }
+.vbar i { position: absolute; top: 0; height: 100%; border-radius: 99px; }
+.vbar:after { content: ""; position: absolute; left: 50%; top: -2px; width: 1px; height: 10px; background: var(--ink-3); }
+.vote p { color: var(--ink-2); font-size: 12.5px; overflow-wrap: anywhere; }
+.levels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; margin-top: 10px; }
+.levels div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dashed var(--line); padding-bottom: 3px; }
+
+/* charts */
+.chart { position: relative; width: 100%; min-width: 0; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.tip { position: absolute; pointer-events: none; z-index: 5; background: rgba(10,10,11,0.96); border: 1px solid var(--line2); border-radius: 10px; padding: 8px 10px; font-size: 12px; line-height: 1.5; white-space: nowrap; max-width: 260px; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); margin-top: 6px; }
+.legend i { display: inline-block; width: 10px; height: 3px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+
+/* tables and lists */
+.scroll { overflow-x: auto; max-width: 100%; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th { text-align: left; color: var(--ink-3); font-weight: 600; font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; padding: 6px 8px; white-space: nowrap; }
+td { padding: 7px 8px; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+td.n, th.n { text-align: right; }
+.list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.list li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 9px 11px; border: 1px solid var(--line); border-radius: 12px; background: var(--tile); }
+.list .grow { flex: 1 1 180px; min-width: 0; overflow-wrap: anywhere; }
+.note { color: var(--ink-2); min-height: 1.2em; overflow-wrap: anywhere; }
+.banner { border: 1px solid rgba(245,197,66,0.4); background: rgba(245,197,66,0.08); color: #e9d9a0; border-radius: 12px; padding: 10px 12px; font-size: 13px; }
+.hist { display: flex; align-items: flex-end; gap: 3px; height: 130px; padding-top: 6px; }
+.hist i { flex: 1; background: var(--blue); border-radius: 3px 3px 0 0; min-height: 2px; opacity: 0.85; }
+.hist i.neg { background: var(--down); }
+.learn h3 { margin: 18px 0 6px; } .learn p, .learn li { color: var(--ink-2); max-width: 78ch; margin: 6px 0; } .learn ul { padding-left: 18px; margin: 4px 0; }
+.learn b { color: var(--ink); }
+.toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); max-width: min(92vw, 420px); background: #fff; color: #111; padding: 10px 14px; border-radius: 12px; font-weight: 600; z-index: 30; box-shadow: 0 8px 30px rgba(0,0,0,0.5); transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out); overflow-wrap: anywhere; }
+.toast[hidden] { display: none; }
+.tag { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: var(--raise); color: var(--ink-2); }
+.disc { color: var(--ink-3); font-size: 12px; text-align: center; padding: 6px 12px; max-width: 80ch; margin: 0 auto; }
+@media (max-width: 480px) { .app { padding: 10px 12px 32px; } .card { padding: 12px; border-radius: 16px; } h2 { font-size: 18px; } .levels { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .btn:active, nav.tabs button:active { transform: none; } .gauge i { transition: none; } }
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<div class="toast" id="toast" role="status" hidden></div>
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const MINUS = '−';
+const fmt = (x, d = 2) => Number(x).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+const pct = (x, d = 1) => (x == null || !Number.isFinite(x) ? 'n/a' : `${x < 0 ? MINUS : '+'}${Math.abs(x * 100).toFixed(d)}%`);
+const pctPlain = (x, d = 0) => (x == null ? 'n/a' : `${(x * 100).toFixed(d)}%`);
+const money = (x) => (x == null ? 'n/a' : `${x < 0 ? MINUS : ''}$${fmt(Math.abs(x), 0)}`);
+const px = (x) => (x == null ? '' : x < 10 ? x.toFixed(3) : x < 1000 ? x.toFixed(2) : x.toFixed(1));
+const num = (x, d = 2) => (x == null || !Number.isFinite(x) ? 'n/a' : fmt(x, d));
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TABS = [['market', 'Market'], ['trade', 'Trade'], ['backtest', 'Backtest'], ['learn', 'Learn']];
+const COLORS = { up: '#3ddc97', down: '#ff6b6b', amber: '#f5c542', blue: '#6aa9ff', accent: '#e8552f', grid: 'rgba(255,255,255,0.07)', axis: '#74746f', ink: '#a9a9a3', purple: '#b794f6' };
+
+const S = {
+  tab: 'market', cat: null, key: 'wti', seed: 1, days: 250, win: 120,
+  mk: null, t: 300, an: null, acct: null, orders: [], nextId: 1, playing: false, timer: null, note: '', loading: false,
+  ticket: { side: 'buy', type: 'market', qty: 1, price: '' },
+  bt: { strategy: 'signal', params: {}, alloc: 50, short: false, cash: 100000, commission: 2, fee: 1, slip: 5, n: 100, res: null, mc: null, sw: null, busy: '', note: '' },
+  saved: [], savedNote: '', saveName: '', confirm: null, show: { sma: true, bb: false, events: true, signals: true }, req: 0,
+};
+
+async function api(path, body) {
+  const res = await fetch(path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  let d = {};
+  try { d = await res.json(); } catch (_) { d = {}; }
+  if (!res.ok) throw new Error(d.error || `Request failed (${res.status})`);
+  return d;
+}
+const apiDelete = async (path) => { const r = await fetch(path, { method: 'DELETE' }); if (!r.ok) { let d = {}; try { d = await r.json(); } catch (_) { /* */ } throw new Error(d.error || 'Could not delete.'); } };
+function toast(msg) { const el = $('#toast'); el.textContent = msg; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => { el.hidden = true; }, 4500); }
+const mkBody = () => ({ commodity: S.key, seed: S.seed, days: S.days });
+const info = () => S.cat.commodities.find((c) => c.key === S.key);
+const wipe = (el) => { if (reduce || !el || !el.animate) return; el.animate([{ clipPath: 'inset(-6px 100% -6px -6px)' }, { clipPath: 'inset(-6px -8px -6px -6px)' }], { duration: 800, easing: 'cubic-bezier(0.77, 0, 0.175, 1)' }); };
+
+// ------------------------------------------------------------------ data flow
+async function loadMarket(keepOrders) {
+  S.loading = true; S.note = ''; stop(); render();
+  try {
+    S.mk = await api('/api/market', mkBody());
+    S.t = S.mk.start_bar; if (!keepOrders) { S.orders = []; S.nextId = 1; }
+    S.bt.res = S.bt.mc = S.bt.sw = null;
+    await refresh();
+  } catch (e) { S.note = e.message; }
+  S.loading = false; render(true);
+}
+async function refresh() {
+  const id = ++S.req;
+  const body = mkBody();
+  const [an, acct] = await Promise.all([api('/api/analysis', Object.assign({ t: S.t }, body)), api('/api/account', Object.assign({ orders: S.orders, up_to: S.t, cash: S.bt.cash }, body))]);
+  if (id !== S.req) return;
+  S.an = an; S.acct = acct;
+}
+async function advance(n) {
+  if (!S.mk || S.loading) return;
+  const next = Math.min(S.mk.total - 1, S.t + n);
+  if (next === S.t) { stop(); return; }
+  S.t = next;
+  try { await refresh(); } catch (e) { S.note = e.message; stop(); }
+  render();
+  if (S.t >= S.mk.total - 1) { stop(); S.note = 'End of the simulated market. Start a new market or reset to replay it.'; render(); }
+}
+function play() { if (S.playing) { stop(); render(); return; } S.playing = true; S.timer = setInterval(() => advance(1), 380); render(); }
+function stop() { S.playing = false; clearInterval(S.timer); }
+async function reset() { stop(); S.t = S.mk.start_bar; S.orders = []; S.nextId = 1; await refresh().catch((e) => { S.note = e.message; }); render(true); }
+async function newMarket() { S.seed = Math.floor(Math.random() * 1e6); await loadMarket(false); }
+
+// ------------------------------------------------------------------ rendering
+function render(animate) {
+  if (!S.cat) { $('#app').innerHTML = '<p class="muted">Loading…</p>'; return; }
+  const view = { market: viewMarket, trade: viewTrade, backtest: viewBacktest, learn: viewLearn }[S.tab]();
+  $('#app').innerHTML = `<header class="top"><div class="logo"><i>▲</i>Commodity Desk</div><nav class="tabs" aria-label="Sections">${TABS.map(([k, l]) => `<button data-tab="${k}" ${S.tab === k ? 'aria-current="page"' : ''}>${l}</button>`).join('')}</nav><span class="sp"></span><span class="chip" title="All prices are simulated">Simulated prices · educational only</span></header>
+    ${S.tab !== 'learn' ? marketBar() : ''}${view}<p class="disc">Prices here are generated by a simulator. Signals and results teach how indicators behave; they say nothing about real markets and are not advice.</p>`;
+  requestAnimationFrame(() => draw(animate));
+}
+function marketBar() {
+  const c = S.cat, groups = c.groups.map((g) => `<optgroup label="${esc(g)}">${c.commodities.filter((x) => x.group === g).map((x) => `<option value="${esc(x.key)}" ${x.key === S.key ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</optgroup>`).join('');
+  const m = S.mk, day = m ? S.t - m.start_bar : 0, span = m ? m.total - 1 - m.start_bar : 1, showBar = S.tab !== 'backtest';
+  return `<section class="card"><div class="bar" style="align-items:flex-end">
+    <div class="field" style="flex:1 1 170px"><label for="sel-c">Commodity</label><select id="sel-c" data-f="key">${groups}</select></div>
+    <div class="field" style="flex:0 1 110px"><label for="in-seed">Market seed</label><input id="in-seed" type="number" min="0" max="2147483647" step="1" value="${S.seed}" data-f="seed"></div>
+    <div class="field" style="flex:0 1 120px"><label for="sel-d">Length</label><select id="sel-d" data-f="days">${[120, 250, 500].map((d) => `<option value="${d}" ${d === S.days ? 'selected' : ''}>${d} days</option>`).join('')}</select></div>
+    <button class="btn" data-act="new">New market</button></div>
+    ${showBar && m ? `<div class="bar" style="margin-top:12px"><button class="btn small" data-act="reset" aria-label="Back to the start">⏮ Reset</button><button class="btn small primary" data-act="step1" ${S.t >= m.total - 1 ? 'disabled' : ''}>Step ▶</button><button class="btn small" data-act="step5" ${S.t >= m.total - 1 ? 'disabled' : ''}>+5 days</button><button class="btn small" data-act="step21" ${S.t >= m.total - 1 ? 'disabled' : ''}>+21 days</button><button class="btn small" data-act="play" aria-pressed="${S.playing}">${S.playing ? '⏸ Pause' : '▶ Play'}</button>
+      <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="${span}" aria-valuenow="${day}"><i style="width:${Math.min(100, (day / span) * 100)}%"></i></div><span class="num muted">Day ${day} of ${span} · ${esc(m.dates[S.t])}</span></div>` : ''}
+    <p class="note" role="status" aria-live="polite">${esc(S.note)}</p></section>`;
+}
+
+function viewMarket() {
+  const m = S.mk, a = S.an;
+  if (!m) return `<section class="card"><p class="muted">${S.loading ? 'Generating a market…' : 'No market yet.'}</p></section>`;
+  const c = m.commodity, close = m.bars[S.t][3], prev = m.bars[S.t - 1][3], chg = close / prev - 1;
+  const ev = m.events.filter((e) => e.bar <= S.t).slice(-4).reverse();
+  return `<div class="grid main"><div class="grid" style="align-content:start">
+    <section class="card"><div class="card-head"><div><h2>${esc(c.name)} <span class="tag">${esc(c.group)}</span></h2><p class="muted">${esc(c.note)}</p></div><span class="sp"></span>
+      <div style="text-align:right"><div class="num" style="font-size:26px;font-weight:700">$${px(close)}</div><div class="num ${chg >= 0 ? 'up' : 'down'}">${pct(chg, 2)} today · per ${esc(c.unit)}</div></div></div>
+      <div class="bar" style="margin-bottom:6px"><div class="seg" role="group" aria-label="Chart window">${[60, 120, 250].map((w) => `<button data-win="${w}" aria-pressed="${S.win === w}">${w}d</button>`).join('')}</div>
+        <label class="check"><input type="checkbox" data-show="sma" ${S.show.sma ? 'checked' : ''}>Averages</label><label class="check"><input type="checkbox" data-show="bb" ${S.show.bb ? 'checked' : ''}>Bands</label><label class="check"><input type="checkbox" data-show="events" ${S.show.events ? 'checked' : ''}>News</label><label class="check"><input type="checkbox" data-show="signals" ${S.show.signals ? 'checked' : ''}>Signals</label></div>
+      <div class="chart" id="ch-price"></div>
+      <div class="legend"><span><i style="background:${COLORS.blue}"></i>20-day</span><span><i style="background:${COLORS.amber}"></i>50-day</span><span><i style="background:${COLORS.purple}"></i>200-day</span><span class="up">▲ Buy signal</span><span class="down">▼ Sell signal</span></div>
+      <div class="chart" id="ch-rsi" style="margin-top:10px"></div><div class="chart" id="ch-macd" style="margin-top:6px"></div></section>
+    <section class="card"><h3>Recent news in this market</h3>${ev.length ? `<ul class="list" style="margin-top:8px">${ev.map((e) => `<li><span class="grow"><b>${esc(e.label)}</b> <span class="muted">· day ${e.bar - m.start_bar}</span></span><span class="num ${e.pct >= 0 ? 'up' : 'down'}">${pct(e.pct / 100, 1)}</span></li>`).join('')}</ul>` : '<p class="muted" style="margin-top:6px">Nothing unusual yet.</p>'}</section></div>
+    ${signalCard(a)}</div>`;
+}
+
+function signalCard(a) {
+  if (!a) return '<section class="card"><p class="muted">Analysing…</p></section>';
+  const pos = Math.max(0, Math.min(100, (a.score + 100) / 2));
+  const lv = a.levels || {};
+  const eq = S.acct ? S.acct.account.equity : S.bt.cash, lots = a.sizing && a.sizing.risk_per_lot ? Math.max(0, Math.floor((eq * 0.01) / a.sizing.risk_per_lot)) : 0;
+  return `<section class="card" aria-label="Analysis and signal"><div class="card-head"><h3>Signal</h3><span class="sp"></span><span class="chip" title="How clear and well-agreed the evidence is">Confidence: ${esc(a.confidence)}</span></div>
+    <div class="bar"><span class="pill ${esc(a.signal)}">${esc(a.signal).toUpperCase()}</span><span class="num muted">score ${a.score >= 0 ? '+' : MINUS}${Math.abs(a.score).toFixed(0)} / 100</span></div>
+    <div class="gauge" aria-hidden="true"><b style="left:40%"></b><b style="left:60%"></b><i style="left:${pos}%"></i></div>
+    <div class="legend" style="justify-content:space-between;margin-top:0"><span>Sell ≤ −20</span><span>Hold</span><span>Buy ≥ +20</span></div>
+    <p style="margin-top:12px">${esc(a.summary)}</p>
+    <div class="votes">${a.votes.map((v) => { const w = Math.abs(v.vote) * 50; return `<div class="vote"><div class="top"><span>${esc(v.label)} <span class="dim">· weight ${(v.weight * 100).toFixed(0)}%</span></span><span class="num ${v.vote >= 0 ? 'up' : 'down'}">${v.contribution >= 0 ? '+' : MINUS}${Math.abs(v.contribution).toFixed(1)}</span></div><div class="vbar"><i style="${v.vote >= 0 ? `left:50%;width:${w}%;background:${COLORS.up}` : `right:50%;width:${w}%;background:${COLORS.down}`}"></i></div><p>${esc(v.reason)}</p></div>`; }).join('')}</div>
+    ${lv.support ? `<div class="levels"><div><span class="muted">Support (20d low)</span><b class="num">${px(lv.support)}</b></div><div><span class="muted">Resistance (20d high)</span><b class="num">${px(lv.resistance)}</b></div>${lv.stop ? `<div><span class="muted">Idea: stop</span><b class="num">${px(lv.stop)}</b></div><div><span class="muted">Idea: target</span><b class="num">${px(lv.target)}</b></div>` : ''}</div>` : ''}
+    <p class="muted" style="margin-top:10px">${esc(a.change_mind)}</p>
+    ${a.sizing && a.sizing.risk_per_lot ? `<p class="muted" style="margin-top:6px">Sizing idea: risking 1% of equity with a 2×ATR stop is about <b class="num" style="color:var(--ink)">${lots}</b> lot${lots === 1 ? '' : 's'} (a lot is ${a.sizing.lot} ${esc(info().unit)}, about ${money(a.sizing.notional)}).</p>` : ''}
+    ${a.signal !== 'Hold' && S.tab === 'market' ? `<button class="btn accent small" style="margin-top:12px" data-tab="trade">Practise this idea in Trade ▸</button>` : ''}</section>`;
+}
+
+function viewTrade() {
+  const m = S.mk;
+  if (!m || !S.acct) return `<section class="card"><p class="muted">${S.loading ? 'Generating a market…' : 'No market yet.'}</p></section>`;
+  const A = S.acct.account, lot = info().lot, close = m.bars[S.t][3], T = S.ticket;
+  const moved = close / m.bars[m.start_bar][3] - 1;
+  const notional = (T.type === 'market' || !T.price ? close : +T.price) * lot * T.qty;
+  const sug = S.an && S.an.sizing && S.an.sizing.risk_per_lot ? Math.max(1, Math.floor((A.equity * 0.01) / S.an.sizing.risk_per_lot)) : 1;
+  const pos = A.qty ? `${A.qty > 0 ? 'Long' : 'Short'} ${Math.abs(A.qty)} lot${Math.abs(A.qty) === 1 ? '' : 's'} @ ${px(A.avg)}` : 'Flat';
+  const wk = S.acct.working, rj = S.acct.rejected.slice(-3);
+  return `<div class="grid main"><div class="grid" style="align-content:start">
+    <section class="card"><div class="card-head"><h3>${esc(m.commodity.name)} · $${px(close)}</h3><span class="sp"></span>${S.an ? `<span class="pill ${esc(S.an.signal)}" style="height:30px;font-size:13px">${esc(S.an.signal).toUpperCase()}</span>` : ''}</div><div class="chart" id="ch-price"></div></section>
+    <section class="card"><div class="card-head"><h3>Account</h3><span class="sp"></span><span class="muted num">Market moved ${pct(moved, 1)} since day 0</span></div>
+      <div class="tiles"><div class="tile"><div class="lab">Equity</div><div class="val num">${money(A.equity)}</div><div class="sub ${A.ret >= 0 ? 'up' : 'down'}">${pct(A.ret, 2)}</div></div>
+      <div class="tile"><div class="lab">Position</div><div class="val num" style="font-size:15px">${esc(pos)}</div><div class="sub">Exposure ${money(A.exposure)}</div></div>
+      <div class="tile"><div class="lab">Unrealised</div><div class="val num ${A.unrealised >= 0 ? 'up' : 'down'}">${money(A.unrealised)}</div></div>
+      <div class="tile"><div class="lab">Realised</div><div class="val num ${A.realised >= 0 ? 'up' : 'down'}">${money(A.realised)}</div><div class="sub">Fees ${money(A.fees)}</div></div></div>
+      <div class="chart" id="ch-equity" style="margin-top:10px"></div></section>
+    <section class="card"><h3>Trades</h3>${S.acct.fills.length ? `<div class="scroll"><table><thead><tr><th>Day</th><th>Side</th><th class="n">Lots</th><th class="n">Price</th><th class="n">Fee</th><th class="n">Realised</th></tr></thead><tbody>${S.acct.fills.slice().reverse().map((f) => `<tr><td class="n">${f.bar - m.start_bar}</td><td class="${f.side === 'buy' ? 'up' : 'down'}">${esc(f.side)} ${esc(f.type)}</td><td class="n">${f.qty}</td><td class="n">${px(f.price)}</td><td class="n">${num(f.fee)}</td><td class="n ${f.realised >= 0 ? 'up' : 'down'}">${num(f.realised)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted" style="margin-top:6px">No trades yet. Place an order, then press Step ▶: orders fill at the next day’s open.</p>'}</section></div>
+    <div class="grid" style="align-content:start">
+    <section class="card"><h3>Order ticket</h3>
+      <div class="bar" style="margin:10px 0"><div class="seg" role="group" aria-label="Side"><button data-side="buy" aria-pressed="${T.side === 'buy'}">Buy</button><button data-side="sell" aria-pressed="${T.side === 'sell'}">Sell / short</button></div>
+      <div class="seg" role="group" aria-label="Order type">${['market', 'stop', 'limit'].map((k) => `<button data-otype="${k}" aria-pressed="${T.type === k}">${k[0].toUpperCase() + k.slice(1)}</button>`).join('')}</div></div>
+      <div class="row"><div class="field"><label for="in-qty">Lots</label><input id="in-qty" type="number" min="1" max="1000" step="1" value="${T.qty}" data-tk="qty"></div>
+      ${T.type !== 'market' ? `<div class="field"><label for="in-price">${T.type === 'stop' ? 'Stop price' : 'Limit price'}</label><input id="in-price" type="number" step="any" min="0" value="${esc(T.price)}" placeholder="${px(close)}" data-tk="price"></div>` : ''}</div>
+      <p class="muted" style="margin:8px 0">1 lot = ${lot} ${esc(info().unit)} ≈ ${money(close * lot)}. This order ≈ <b class="num" style="color:var(--ink)">${money(notional)}</b>${S.an && S.an.sizing ? ` · suggested size <button class="btn small" data-act="sug" style="height:24px">${sug} lot${sug === 1 ? '' : 's'}</button>` : ''}</p>
+      <div class="bar"><button class="btn ${T.side === 'buy' ? 'buy' : 'sell'}" style="flex:1" data-act="place">${T.side === 'buy' ? 'Buy' : 'Sell'} ${T.qty} · ${T.type}</button><button class="btn" data-act="close" ${A.qty ? '' : 'disabled'}>Close position</button></div>
+      <p class="muted" style="margin-top:8px;font-size:12.5px">Costs: $2 per fill, 1 bp fee, 5 bp slippage on market and stop fills. Exposure is capped at 3× equity. Stop = exit or enter if price trades through it; limit = only at that price or better.</p></section>
+    ${S.an ? signalCard(S.an) : ''}
+    <section class="card"><h3>Working orders</h3>${wk.length ? `<ul class="list" style="margin-top:8px">${wk.map((o) => `<li><span class="grow"><b class="${o.side === 'buy' ? 'up' : 'down'}">${esc(o.side)}</b> ${o.qty} · ${esc(o.type)}${o.price ? ' @ ' + px(o.price) : ''}</span><button class="btn small" data-cancel="${o.id}">Cancel</button></li>`).join('')}</ul>` : '<p class="muted" style="margin-top:6px">None.</p>'}${rj.length ? `<p class="down" style="margin-top:8px;font-size:12.5px">${rj.map((r) => esc(r.reason)).join(' ')}</p>` : ''}</section>
+    ${savedCard('trade')}</div></div>`;
+}
+
+function btMetrics(label, m) {
+  return `<tr><td>${label}</td><td class="n ${m.total_return >= 0 ? 'up' : 'down'}">${pct(m.total_return, 1)}</td><td class="n">${pct(m.annualised_return, 1)}</td><td class="n">${pct(m.volatility, 1)}</td><td class="n">${num(m.sharpe)}</td><td class="n down">${pct(m.max_drawdown, 1)}</td><td class="n">${m.trades}</td><td class="n">${m.win_rate == null ? 'n/a' : pctPlain(m.win_rate)}</td><td class="n">${m.profit_factor == null ? 'n/a' : num(m.profit_factor)}</td><td class="n">${pctPlain(m.exposure)}</td></tr>`;
+}
+function paramFields() {
+  const st = S.cat.strategies.find((s) => s.key === S.bt.strategy), p = Object.assign({}, st.params, S.bt.params);
+  return Object.keys(st.params).map((k) => `<div class="field"><label for="bp-${k}">${esc(k.replace('_', ' '))}</label><input id="bp-${k}" type="number" step="any" value="${esc(p[k])}" data-bp="${esc(k)}"></div>`).join('');
+}
+function viewBacktest() {
+  const B = S.bt, r = B.res, m = S.mk;
+  const mc = B.mc, sw = B.sw;
+  return `<section class="card"><div class="card-head"><h3>Strategy backtest</h3><span class="sp"></span><span class="muted">Runs over the whole ${S.days}-day window of the market above (after a 300-day history).</span></div>
+    <div class="row"><div class="field"><label for="bt-s">Strategy</label><select id="bt-s" data-bf="strategy">${S.cat.strategies.map((s) => `<option value="${esc(s.key)}" ${s.key === B.strategy ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></div>${paramFields()}
+      <div class="field"><label for="bt-a">Position size (% of equity)</label><input id="bt-a" type="number" min="5" max="200" step="5" value="${B.alloc}" data-bf="alloc"></div>
+      <div class="field"><label for="bt-c">Starting cash ($)</label><input id="bt-c" type="number" min="1000" step="1000" value="${B.cash}" data-bf="cash"></div></div>
+    <div class="row" style="margin-top:10px"><div class="field"><label for="bt-cm">Commission per fill ($)</label><input id="bt-cm" type="number" min="0" step="0.5" value="${B.commission}" data-bf="commission"></div><div class="field"><label for="bt-f">Fee (bp)</label><input id="bt-f" type="number" min="0" step="0.5" value="${B.fee}" data-bf="fee"></div><div class="field"><label for="bt-sl">Slippage (bp)</label><input id="bt-sl" type="number" min="0" step="0.5" value="${B.slip}" data-bf="slip"></div>
+      <label class="check" style="align-self:end;height:36px"><input type="checkbox" data-bf="short" ${B.short ? 'checked' : ''}>Allow short selling</label></div>
+    <div class="bar" style="margin-top:12px;align-items:flex-end"><button class="btn accent" data-act="bt-run" ${B.busy ? 'disabled' : ''}>Run backtest</button><div class="field" style="flex:0 1 110px"><label for="bt-n">Markets to test</label><input type="number" id="bt-n" min="5" max="300" value="${B.n}" data-bf="n"></div><button class="btn" data-act="bt-mc" ${B.busy ? 'disabled' : ''}>Test on other markets</button><button class="btn" data-act="bt-sw" ${B.busy ? 'disabled' : ''}>Sweep moving averages</button><span class="note" role="status" aria-live="polite">${B.busy ? esc(B.busy) : esc(B.note)}</span></div></section>
+    <div class="banner">Read results with care: costs and slippage matter, a good run on one market can be luck, and the best settings on past data usually do worse afterwards. The markets here are simulated with patterns built in (energy snaps back, metals trend, agriculture has seasons), so an edge on them proves nothing about real markets.</div>
+    ${r ? `<section class="card"><div class="card-head"><h3>Result · ${esc(m.commodity.name)} · ${esc(S.cat.strategies.find((s) => s.key === r.strategy).label)}</h3><span class="sp"></span></div>
+      <div class="scroll"><table><thead><tr><th></th><th class="n">Return</th><th class="n">Per year</th><th class="n">Volatility</th><th class="n">Sharpe</th><th class="n">Max drawdown</th><th class="n">Trades</th><th class="n">Win rate</th><th class="n">Profit factor</th><th class="n">In market</th></tr></thead><tbody>${btMetrics('Strategy', r.metrics)}${btMetrics('Buy and hold', r.buy_hold.metrics)}</tbody></table></div>
+      <div class="chart" id="ch-bt" style="margin-top:12px"></div><div class="legend"><span><i style="background:${COLORS.accent}"></i>Strategy equity</span><span><i style="background:${COLORS.ink}"></i>Buy and hold</span></div>
+      <div class="chart" id="ch-dd" style="margin-top:10px"></div><div class="chart" id="ch-price" style="margin-top:10px"></div>
+      <h3 style="margin-top:14px">Trades</h3>${r.trades.length ? `<div class="scroll"><table><thead><tr><th>Side</th><th class="n">Entry day</th><th class="n">Exit day</th><th class="n">Lots</th><th class="n">Days</th><th class="n">P&amp;L</th></tr></thead><tbody>${r.trades.slice(-60).map((t) => `<tr><td>${esc(t.side)}${t.open ? ' <span class="tag">open</span>' : ''}</td><td class="n">${t.entry_bar - m.start_bar}</td><td class="n">${t.exit_bar - m.start_bar}</td><td class="n">${t.qty}</td><td class="n">${t.bars_held}</td><td class="n ${t.pnl >= 0 ? 'up' : 'down'}">${money(t.pnl)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">The strategy never traded.</p>'}</section>` : ''}
+    ${mc ? mcCard(mc) : ''}${sw ? sweepCard(sw) : ''}${savedCard('backtest')}`;
+}
+function mcCard(mc) {
+  const s = mc.summary, h = mc.histogram, max = Math.max(...h.counts, 1);
+  return `<section class="card"><div class="card-head"><h3>Across ${mc.n} different simulated markets</h3></div>
+    <p>Following the same rules on ${mc.n} fresh markets of ${mc.days} days, the strategy was <b>profitable in ${pctPlain(s.profitable)}</b> of them and <b>beat buy-and-hold in ${pctPlain(s.beat_buy_hold)}</b>. Average return ${pct(s.mean, 1)} (buy and hold ${pct(s.buy_hold_mean, 1)}).</p>
+    <div class="tiles" style="margin-top:10px"><div class="tile"><div class="lab">Median</div><div class="val num">${pct(s.median, 1)}</div></div><div class="tile"><div class="lab">Bad luck (5th pct)</div><div class="val num down">${pct(s.p5, 1)}</div></div><div class="tile"><div class="lab">Good luck (95th pct)</div><div class="val num up">${pct(s.p95, 1)}</div></div><div class="tile"><div class="lab">Median worst drawdown</div><div class="val num down">${pct(s.median_max_drawdown, 1)}</div></div><div class="tile"><div class="lab">Avg trades</div><div class="val num">${num(s.mean_trades, 1)}</div></div></div>
+    <div class="hist" role="img" aria-label="Distribution of returns across simulated markets">${h.counts.map((c, i) => { const lo = h.lo + i * h.width; return `<i class="${lo + h.width / 2 < 0 ? 'neg' : ''}" style="height:${(c / max) * 100}%" title="${pct(lo, 1)} to ${pct(lo + h.width, 1)}: ${c} markets"></i>`; }).join('')}</div>
+    <div class="legend" style="justify-content:space-between"><span>${pct(h.lo, 0)}</span><span>return</span><span>${pct(h.lo + h.width * h.counts.length, 0)}</span></div>
+    <p class="muted" style="margin-top:8px">The spread is the point: with the same rules, outcomes range from ${pct(s.p5, 0)} to ${pct(s.p95, 0)}. One good run is not evidence of skill.</p></section>`;
+}
+function sweepCard(sw) {
+  return `<section class="card"><div class="card-head"><h3>Moving-average sweep (train vs test)</h3></div><p class="muted">Each crossover was ranked on the first half of the window (train) and then scored on the second half (test). ${esc(sw.note)}</p>
+    <div class="scroll"><table style="margin-top:8px"><thead><tr><th class="n">Fast</th><th class="n">Slow</th><th class="n">Train</th><th class="n">Test</th><th class="n">Whole</th><th class="n">Trades</th></tr></thead><tbody>${sw.rows.map((x) => `<tr><td class="n">${x.fast}</td><td class="n">${x.slow}</td><td class="n ${x.train >= 0 ? 'up' : 'down'}">${pct(x.train, 1)}</td><td class="n ${x.test >= 0 ? 'up' : 'down'}">${pct(x.test, 1)}</td><td class="n">${pct(x.total, 1)}</td><td class="n">${x.trades}</td></tr>`).join('')}</tbody></table></div></section>`;
+}
+
+function savedCard(kind) {
+  const list = S.saved.filter((r) => r.kind === kind);
+  return `<section class="card"><div class="card-head"><h3>Saved ${kind === 'trade' ? 'scenarios' : 'backtests'}</h3><span class="sp"></span></div>
+    <div class="bar" style="margin-bottom:8px"><div class="field" style="flex:1 1 180px"><label for="sv-name-${kind}">Name</label><input id="sv-name-${kind}" type="text" maxlength="80" placeholder="${esc(info().name)} · seed ${S.seed}" value="${esc(S.saveName)}" data-sname></div><button class="btn small" style="align-self:flex-end" data-act="${kind === 'trade' ? 'save-trade' : 'save-bt'}" ${kind === 'backtest' && !S.bt.res ? 'disabled' : ''}>Save ${kind === 'trade' ? 'this scenario' : 'this backtest'}</button></div>
+    ${list.length ? `<ul class="list">${list.map((r) => `<li><span class="grow"><b>${esc(r.name)}</b><br><span class="muted">${esc(r.commodity)} · ${esc(r.created_at.slice(0, 10))}${r.summary && r.summary.text ? ' · ' + esc(r.summary.text) : ''}</span></span><button class="btn small" data-load="${r.id}">Load</button><button class="btn small ${S.confirm === r.id ? 'accent' : ''}" data-del="${r.id}" aria-label="${S.confirm === r.id ? 'Confirm delete ' : 'Delete '}${esc(r.name)}">${S.confirm === r.id ? 'Confirm' : 'Delete'}</button></li>`).join('')}</ul>` : `<p class="muted">Nothing saved yet.</p>`}
+    <p class="note" role="status" aria-live="polite">${esc(S.savedNote)}</p></section>`;
+}
+
+function viewLearn() {
+  const c = S.cat;
+  return `<section class="card learn"><h2>How this works</h2>
+    <p>Commodity Desk is a practice ground. Prices are <b>simulated</b>, not real. You can watch a market unfold day by day, read an analysis and a Buy / Sell / Hold signal, practise trading with paper money, and test rule-based strategies on many different simulated markets.</p>
+    <h3>The nine markets</h3><ul>${c.groups.map((g) => `<li><b>${esc(g)}</b>: ${c.commodities.filter((x) => x.group === g).map((x) => `${esc(x.name)} (${esc(x.note)})`).join(' ')}</li>`).join('')}</ul>
+    <h3>How a market is simulated</h3><p>Each market is a seeded random path, so the same seed always gives the same history. It blends a long-run level the price is pulled back toward (strong for energy), a yearly seasonal swing (strong for agriculture and natural gas), momentum (metals trend), calm and stormy spells (volatility clusters), and occasional labelled news shocks. There are 300 days of history before day 0 so the averages and last year’s seasons exist.</p>
+    <h3>The indicators</h3><ul><li><b>Moving averages (20, 50, 200 day)</b>: the average price over a window. Price above a rising average is an uptrend.</li><li><b>RSI</b>: 0 to 100 measure of recent buying versus selling. Above 70 is “overbought”, below 30 “oversold”.</li><li><b>MACD</b>: the gap between a fast and a slow average; its histogram shows whether momentum is building or fading.</li><li><b>Bollinger bands</b>: a band two standard deviations around the 20-day average; touching the edge means the price is stretched.</li><li><b>ATR</b>: the average daily range, used to place stops and size positions.</li><li><b>Seasonality</b>: what this time of year did in earlier years.</li></ul>
+    <h3>How the signal is made</h3><p>Four kinds of evidence vote from −1 to +1: <b>trend</b>, <b>momentum</b>, <b>mean reversion</b> (is the price stretched?) and <b>seasonality</b>. The votes are weighted by what each group tends to respond to here: metals mostly trend and momentum, energy mostly mean reversion, agriculture mean reversion and seasonality. The weighted total is a score from −100 to +100: <b>Buy at +20 or more, Sell at −20 or less, otherwise Hold</b>. Volatility does not vote; when it runs high, confidence drops. Every vote shows its reason so you can disagree with it. Only past data is ever used.</p>
+    <h3>Paper trading</h3><p>An order placed today fills at <b>tomorrow’s open</b>. Market orders pay slippage; stops trigger when price trades through them (a gap fills at the worse open); limits fill at their price or better. Each fill costs a commission and a small fee. You can go long or short, up to 3× your equity.</p>
+    <h3>Reading a backtest</h3><ul><li><b>Compare with buy-and-hold.</b> A strategy that only matches holding the asset, with more effort and cost, adds nothing.</li><li><b>Luck is large.</b> Use “Test on other markets” to see the spread of outcomes for the same rules.</li><li><b>Overfitting.</b> The sweep ranks settings on the first half and scores them on the second: the best-looking setting usually fades.</li><li><b>Costs matter.</b> Try raising slippage and fees and watch active strategies suffer.</li></ul>
+    <h3>What this cannot tell you</h3><p>The simulator contains the very patterns the signals look for, so decent results here prove only that the code finds patterns that were put there. Real markets change, patterns fade once many people trade them, and real trading has risks (gaps, liquidity, margin calls, fees and taxes) this model leaves out. Nothing here is investment advice.</p></section>`;
+}
+
+// ------------------------------------------------------------------ charts
+const svgNS = 'http://www.w3.org/2000/svg';
+function svgOpen(W, H, label) { return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(label)}">`; }
+function yTicks(lo, hi, n = 4) {
+  const rng = hi - lo || 1, raw = rng / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / mag, step = (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag, out = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + step / 1e6; v += step) out.push(+v.toFixed(10));
+  return out;
+}
+function draw(animate) {
+  if (!S.mk && S.tab !== 'learn') return;
+  const ids = { 'ch-price': drawPrice, 'ch-rsi': drawRsi, 'ch-macd': drawMacd, 'ch-equity': drawEquity, 'ch-bt': drawBtEquity, 'ch-dd': drawDd };
+  for (const id of Object.keys(ids)) { const el = $('#' + id); if (el) ids[id](el); }
+  if (animate) { const p = $('#ch-price svg'); wipe(p); wipe($('#ch-bt svg')); }
+}
+const WIN = () => { const i1 = S.tab === 'backtest' ? S.mk.total - 1 : S.t, n = S.tab === 'backtest' ? Math.min(S.mk.total, S.days) : S.win; return [Math.max(0, i1 - n + 1), i1]; };
+function drawPrice(el) {
+  const m = S.mk, [i0, i1] = WIN(), W = Math.max(280, el.clientWidth), H = S.tab === 'backtest' ? 240 : 300, ml = 6, mr = 54, mt = 10, mb = 20, n = i1 - i0 + 1;
+  const I = m.indicators, bars = m.bars;
+  let lo = Infinity, hi = -Infinity;
+  for (let i = i0; i <= i1; i++) {
+    lo = Math.min(lo, bars[i][2]); hi = Math.max(hi, bars[i][1]);
+    if (S.show.sma) for (const k of ['sma20', 'sma50', 'sma200']) { const v = I[k][i]; if (v != null) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }
+    if (S.show.bb && I.bb_up[i] != null) { lo = Math.min(lo, I.bb_low[i]); hi = Math.max(hi, I.bb_up[i]); }
+  }
+  const pad = (hi - lo) * 0.05 || 1; lo -= pad; hi += pad;
+  const X = (i) => ml + ((i - i0 + 0.5) / n) * (W - ml - mr), Y = (v) => mt + (1 - (v - lo) / (hi - lo)) * (H - mt - mb), cw = Math.max(1, Math.min(14, ((W - ml - mr) / n) * 0.68));
+  let s = svgOpen(W, H, `${m.commodity.name} price chart with indicators`);
+  for (const v of yTicks(lo, hi)) s += `<line x1="${ml}" x2="${W - mr}" y1="${Y(v)}" y2="${Y(v)}" stroke="${COLORS.grid}"/><text x="${W - mr + 6}" y="${Y(v) + 4}" font-size="11" fill="${COLORS.axis}">${px(v)}</text>`;
+  const every = Math.max(1, Math.round(n / 6));
+  for (let i = i0; i <= i1; i += every) s += `<text x="${X(i)}" y="${H - 5}" font-size="11" fill="${COLORS.axis}" text-anchor="middle">${i - m.start_bar}</text>`;
+  if (S.show.bb) { let up = '', lw = ''; for (let i = i0; i <= i1; i++) if (I.bb_up[i] != null) { up += `${up ? 'L' : 'M'}${X(i)} ${Y(I.bb_up[i])}`; } for (let i = i1; i >= i0; i--) if (I.bb_low[i] != null) lw += `L${X(i)} ${Y(I.bb_low[i])}`; if (up) s += `<path d="${up}${lw}Z" fill="rgba(106,169,255,0.08)" stroke="rgba(106,169,255,0.3)"/>`; }
+  if (S.tab === 'market' && S.show.events) for (const e of m.events) if (e.bar >= i0 && e.bar <= i1) s += `<line x1="${X(e.bar)}" x2="${X(e.bar)}" y1="${mt}" y2="${H - mb}" stroke="${e.pct >= 0 ? COLORS.up : COLORS.down}" stroke-opacity="0.35" stroke-dasharray="3 3"/><circle cx="${X(e.bar)}" cy="${mt + 4}" r="4" fill="${e.pct >= 0 ? COLORS.up : COLORS.down}"><title>${esc(e.label)} ${pct(e.pct / 100, 1)}</title></circle>`;
+  for (let i = i0; i <= i1; i++) { const [o, h, l, c] = bars[i], col = c >= o ? COLORS.up : COLORS.down; s += `<line x1="${X(i)}" x2="${X(i)}" y1="${Y(h)}" y2="${Y(l)}" stroke="${col}"/><rect x="${X(i) - cw / 2}" y="${Y(Math.max(o, c))}" width="${cw}" height="${Math.max(1, Math.abs(Y(o) - Y(c)))}" fill="${col}"/>`; }
+  if (S.show.sma) for (const [k, col] of [['sma20', COLORS.blue], ['sma50', COLORS.amber], ['sma200', COLORS.purple]]) { let d = ''; for (let i = i0; i <= i1; i++) if (I[k][i] != null) d += `${d ? 'L' : 'M'}${X(i)} ${Y(I[k][i])}`; if (d) s += `<path d="${d}" fill="none" stroke="${col}" stroke-width="1.4"/>`; }
+  if (S.tab === 'market' && S.show.signals) { let prev = null; for (let i = Math.max(1, i0); i <= i1; i++) { const sc = m.scores[i], lab = sc == null ? null : sc >= m.thresholds.buy ? 'Buy' : sc <= m.thresholds.sell ? 'Sell' : 'Hold'; if (lab && lab !== prev && lab !== 'Hold') s += lab === 'Buy' ? `<path d="M${X(i)} ${Y(bars[i][2]) + 4}l-5 9h10z" fill="${COLORS.up}"><title>Buy signal, day ${i - m.start_bar}</title></path>` : `<path d="M${X(i)} ${Y(bars[i][1]) - 4}l-5 -9h10z" fill="${COLORS.down}"><title>Sell signal, day ${i - m.start_bar}</title></path>`; if (lab) prev = lab; } }
+  if (S.tab === 'trade' && S.acct) {
+    for (const f of S.acct.fills) if (f.bar >= i0 && f.bar <= i1) s += f.side === 'buy' ? `<path d="M${X(f.bar)} ${Y(f.price)}l-6 11h12z" fill="#fff" stroke="${COLORS.up}" stroke-width="2"><title>Buy ${f.qty} @ ${px(f.price)}</title></path>` : `<path d="M${X(f.bar)} ${Y(f.price)}l-6 -11h12z" fill="#fff" stroke="${COLORS.down}" stroke-width="2"><title>Sell ${f.qty} @ ${px(f.price)}</title></path>`;
+    const A = S.acct.account; if (A.qty) s += `<line x1="${ml}" x2="${W - mr}" y1="${Y(A.avg)}" y2="${Y(A.avg)}" stroke="#fff" stroke-dasharray="5 4" stroke-opacity="0.6"/><text x="${ml + 4}" y="${Y(A.avg) - 4}" font-size="11" fill="#fff">avg ${px(A.avg)}</text>`;
+    for (const o of S.acct.working) if (o.price) s += `<line x1="${ml}" x2="${W - mr}" y1="${Y(o.price)}" y2="${Y(o.price)}" stroke="${COLORS.amber}" stroke-dasharray="2 3"/><text x="${W - mr - 4}" y="${Y(o.price) - 3}" font-size="11" fill="${COLORS.amber}" text-anchor="end">${esc(o.type)} ${esc(o.side)}</text>`;
+  }
+  if (S.tab === 'market' && S.an && S.an.levels && S.an.levels.stop && S.an.signal !== 'Hold') for (const [k, col, lab] of [['stop', COLORS.down, 'stop idea'], ['target', COLORS.up, 'target idea']]) { const v = S.an.levels[k]; if (v >= lo && v <= hi) s += `<line x1="${ml}" x2="${W - mr}" y1="${Y(v)}" y2="${Y(v)}" stroke="${col}" stroke-dasharray="4 4" stroke-opacity="0.7"/><text x="${ml + 4}" y="${Y(v) - 3}" font-size="11" fill="${col}">${lab} ${px(v)}</text>`; }
+  if (S.tab === 'backtest' && S.bt.res) for (const t of S.bt.res.trades) { const col = t.side === 'long' ? COLORS.up : COLORS.down; if (t.entry_bar >= i0) s += `<circle cx="${X(t.entry_bar)}" cy="${Y(bars[t.entry_bar][3])}" r="4" fill="${col}" stroke="#000" stroke-width="1"><title>Enter ${esc(t.side)}, day ${t.entry_bar - m.start_bar}</title></circle>`; if (!t.open && t.exit_bar >= i0) s += `<rect x="${X(t.exit_bar) - 3.5}" y="${Y(bars[t.exit_bar][3]) - 3.5}" width="7" height="7" fill="#fff" stroke="${col}" stroke-width="2"><title>Exit, ${money(t.pnl)}</title></rect>`; }
+  s += `<line id="xh" y1="${mt}" y2="${H - mb}" stroke="#fff" stroke-opacity="0.4" visibility="hidden"/><rect class="hit" x="${ml}" y="0" width="${W - ml - mr}" height="${H - mb}" fill="transparent"/></svg><div class="tip" hidden></div>`;
+  el.innerHTML = s;
+  const svg = el.firstElementChild, tip = el.lastElementChild;
+  const idx = (ev) => { const r = svg.getBoundingClientRect(), x = ((ev.clientX - r.left) / r.width) * W; return Math.max(i0, Math.min(i1, Math.floor(((x - ml) / (W - ml - mr)) * n) + i0)); };
+  svg.addEventListener('pointermove', (ev) => {
+    const i = idx(ev), b = bars[i], sc = m.scores[i], lab = sc == null ? '' : `<br>Score ${sc >= 0 ? '+' : MINUS}${Math.abs(sc).toFixed(0)} · ${sc >= m.thresholds.buy ? 'Buy' : sc <= m.thresholds.sell ? 'Sell' : 'Hold'}`;
+    $('#xh', svg).setAttribute('x1', X(i)); $('#xh', svg).setAttribute('x2', X(i)); $('#xh', svg).setAttribute('visibility', 'visible');
+    tip.hidden = false; tip.innerHTML = `<b>Day ${i - m.start_bar}</b> · ${esc(m.dates[i])}<br>O ${px(b[0])}  H ${px(b[1])}<br>L ${px(b[2])}  C ${px(b[3])}${I.rsi14[i] != null ? `<br>RSI ${I.rsi14[i].toFixed(0)}` : ''}${lab}`;
+    const bw = el.clientWidth, tx = (X(i) / W) * bw; tip.style.left = `${Math.min(bw - tip.offsetWidth - 4, Math.max(4, tx + 12))}px`; tip.style.top = '8px';
+  });
+  svg.addEventListener('pointerleave', () => { tip.hidden = true; $('#xh', svg).setAttribute('visibility', 'hidden'); });
+}
+function subChart(el, label, H, ymin, ymax, body) {
+  const m = S.mk, [i0, i1] = WIN(), W = Math.max(280, el.clientWidth), ml = 6, mr = 54, mt = 6, mb = 4, n = i1 - i0 + 1;
+  const X = (i) => ml + ((i - i0 + 0.5) / n) * (W - ml - mr), Y = (v) => mt + (1 - (v - ymin) / (ymax - ymin)) * (H - mt - mb);
+  el.innerHTML = svgOpen(W, H, label) + body({ m, i0, i1, X, Y, W, ml, mr, n }) + '</svg>';
+}
+function drawRsi(el) {
+  subChart(el, 'RSI', 80, 0, 100, ({ m, i0, i1, X, Y, W, ml, mr }) => {
+    let s = `<rect x="${ml}" y="${Y(70)}" width="${W - ml - mr}" height="${Y(30) - Y(70)}" fill="rgba(255,255,255,0.03)"/>`;
+    for (const v of [30, 70]) s += `<line x1="${ml}" x2="${W - mr}" y1="${Y(v)}" y2="${Y(v)}" stroke="${COLORS.grid}" stroke-dasharray="3 3"/><text x="${W - mr + 6}" y="${Y(v) + 4}" font-size="11" fill="${COLORS.axis}">${v}</text>`;
+    let d = ''; for (let i = i0; i <= i1; i++) if (m.indicators.rsi14[i] != null) d += `${d ? 'L' : 'M'}${X(i)} ${Y(m.indicators.rsi14[i])}`;
+    return s + `<path d="${d}" fill="none" stroke="${COLORS.amber}" stroke-width="1.5"/><text x="${ml + 4}" y="14" font-size="11" fill="${COLORS.ink}">RSI 14</text>`;
+  });
+}
+function drawMacd(el) {
+  const m = S.mk, [i0, i1] = WIN(), I = m.indicators; let mx = 1e-9;
+  for (let i = i0; i <= i1; i++) for (const k of ['macd', 'macd_signal', 'macd_hist']) if (I[k][i] != null) mx = Math.max(mx, Math.abs(I[k][i]));
+  subChart(el, 'MACD', 90, -mx * 1.1, mx * 1.1, ({ X, Y, W, ml, mr, n }) => {
+    let s = `<line x1="${ml}" x2="${W - mr}" y1="${Y(0)}" y2="${Y(0)}" stroke="${COLORS.grid}"/>`;
+    const bw = Math.max(1, ((W - ml - mr) / n) * 0.6);
+    for (let i = i0; i <= i1; i++) if (I.macd_hist[i] != null) s += `<rect x="${X(i) - bw / 2}" y="${Math.min(Y(0), Y(I.macd_hist[i]))}" width="${bw}" height="${Math.abs(Y(I.macd_hist[i]) - Y(0))}" fill="${I.macd_hist[i] >= 0 ? COLORS.up : COLORS.down}" opacity="0.6"/>`;
+    for (const [k, col] of [['macd', COLORS.blue], ['macd_signal', COLORS.amber]]) { let d = ''; for (let i = i0; i <= i1; i++) if (I[k][i] != null) d += `${d ? 'L' : 'M'}${X(i)} ${Y(I[k][i])}`; if (d) s += `<path d="${d}" fill="none" stroke="${col}" stroke-width="1.3"/>`; }
+    return s + `<text x="${ml + 4}" y="14" font-size="11" fill="${COLORS.ink}">MACD</text>`;
+  });
+}
+function lineBox(el, label, H, series, base, fmtY) {
+  const W = Math.max(280, el.clientWidth), ml = 6, mr = 62, mt = 8, mb = 18;
+  let x0 = Infinity, x1 = -Infinity, lo = Infinity, hi = -Infinity;
+  for (const s of series) for (const [x, y] of s.pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); lo = Math.min(lo, y); hi = Math.max(hi, y); }
+  if (base != null) { lo = Math.min(lo, base); hi = Math.max(hi, base); }
+  const pad = (hi - lo) * 0.08 || Math.abs(hi) * 0.01 || 1; lo -= pad; hi += pad;
+  const X = (x) => ml + ((x - x0) / Math.max(1, x1 - x0)) * (W - ml - mr), Y = (y) => mt + (1 - (y - lo) / (hi - lo)) * (H - mt - mb);
+  let s = svgOpen(W, H, label);
+  for (const v of yTicks(lo, hi, 3)) s += `<line x1="${ml}" x2="${W - mr}" y1="${Y(v)}" y2="${Y(v)}" stroke="${COLORS.grid}"/><text x="${W - mr + 6}" y="${Y(v) + 4}" font-size="11" fill="${COLORS.axis}">${fmtY(v)}</text>`;
+  if (base != null) s += `<line x1="${ml}" x2="${W - mr}" y1="${Y(base)}" y2="${Y(base)}" stroke="#fff" stroke-opacity="0.35" stroke-dasharray="4 4"/>`;
+  const every = Math.max(1, Math.round((x1 - x0) / 6));
+  for (let x = x0; x <= x1; x += every) s += `<text x="${X(x)}" y="${H - 4}" font-size="11" fill="${COLORS.axis}" text-anchor="middle">${x - S.mk.start_bar}</text>`;
+  for (const se of series) { const d = se.pts.map((p, i) => `${i ? 'L' : 'M'}${X(p[0]).toFixed(1)} ${Y(p[1]).toFixed(1)}`).join(''); if (se.area) s += `<path d="${d}L${X(x1)} ${Y(0)}L${X(x0)} ${Y(0)}Z" fill="${se.color}" opacity="0.18"/>`; s += `<path d="${d}" fill="none" stroke="${se.color}" stroke-width="${se.w || 1.8}"/>`; }
+  el.innerHTML = s + '</svg>';
+}
+function drawEquity(el) { const e = S.acct.equity; lineBox(el, 'Account equity', 150, [{ pts: e.map((r) => [r.bar, r.equity]), color: COLORS.accent }], S.bt.cash, (v) => money(v)); }
+function drawBtEquity(el) { const r = S.bt.res; lineBox(el, 'Strategy equity versus buy and hold', 200, [{ pts: r.buy_hold.equity, color: COLORS.ink, w: 1.4 }, { pts: r.equity, color: COLORS.accent }], S.bt.cash, (v) => money(v)); }
+function drawDd(el) { const r = S.bt.res; lineBox(el, 'Drawdown', 90, [{ pts: r.drawdown, color: COLORS.down, area: true, w: 1.4 }], 0, (v) => pct(v, Math.abs(v) < 0.02 ? 1 : 0)); }
+
+// ------------------------------------------------------------------ saved runs
+async function loadSaved() { try { S.saved = (await api('/api/runs')).runs; } catch (_) { S.saved = []; } }
+async function saveRun(kind) {
+  const name = (S.saveName || '').trim() || `${info().name} · seed ${S.seed}`;
+  const params = kind === 'trade' ? Object.assign(mkBody(), { orders: S.orders, t: S.t, nextId: S.nextId, tab: 'trade' }) : Object.assign(mkBody(), { bt: Object.assign({}, S.bt, { res: null, mc: null, sw: null, busy: '', note: '' }), tab: 'backtest' });
+  const summary = kind === 'trade' && S.acct ? { text: `${pct(S.acct.account.ret, 1)} · day ${S.t - S.mk.start_bar}` } : S.bt.res ? { text: pct(S.bt.res.metrics.total_return, 1) } : {};
+  try { await api('/api/runs', { name, kind, commodity: info().name, params, summary }); S.saveName = ''; S.savedNote = 'Saved.'; await loadSaved(); toast('Saved.'); } catch (e) { S.savedNote = e.message; }
+  render();
+}
+async function loadRun(id) {
+  try {
+    const r = (await api('/api/runs/' + id)).run, p = r.params || {};
+    S.key = p.commodity; S.seed = p.seed; S.days = p.days; S.tab = r.kind === 'trade' ? 'trade' : 'backtest';
+    if (r.kind === 'trade') { S.orders = Array.isArray(p.orders) ? p.orders : []; S.nextId = p.nextId || 1; await loadMarket(true); S.t = Math.min(Math.max(p.t || S.mk.start_bar, S.mk.start_bar), S.mk.total - 1); await refresh(); render(true); }
+    else { Object.assign(S.bt, p.bt || {}); await loadMarket(false); await runBacktest(); }
+    toast('Loaded.');
+  } catch (e) { S.savedNote = e.message; render(); }
+}
+
+// ------------------------------------------------------------------ backtest actions
+const btBody = () => Object.assign(mkBody(), { strategy: S.bt.strategy, params: S.bt.params, alloc: S.bt.alloc / 100, allow_short: S.bt.short, cash: S.bt.cash, costs: { commission: S.bt.commission, fee_bps: S.bt.fee, slippage_bps: S.bt.slip } });
+async function btCall(label, fn) { S.bt.busy = label; S.bt.note = ''; render(); try { await fn(); } catch (e) { S.bt.note = e.message; } S.bt.busy = ''; render(true); }
+const runBacktest = () => btCall('Running…', async () => { S.bt.res = await api('/api/backtest', btBody()); });
+const runMc = () => btCall(`Simulating ${S.bt.n} markets…`, async () => { S.bt.mc = await api('/api/montecarlo', Object.assign(btBody(), { n: S.bt.n, seed0: 1000 })); });
+const runSweep = () => btCall('Sweeping…', async () => { S.bt.sw = await api('/api/sweep', btBody()); });
+
+// ------------------------------------------------------------------ events
+document.addEventListener('click', async (e) => {
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.dataset.tab) { S.tab = t.dataset.tab; S.note = ''; try { history.replaceState(null, '', '#' + S.tab); } catch (_) { /* */ } if (S.mk && S.tab !== 'learn') { await refresh().catch(() => {}); } return render(true); }
+  if (t.dataset.win) { S.win = +t.dataset.win; return render(); }
+  if (t.dataset.side) { S.ticket.side = t.dataset.side; return render(); }
+  if (t.dataset.otype) { S.ticket.type = t.dataset.otype; return render(); }
+  if (t.dataset.cancel) { const o = S.orders.find((x) => x.id === +t.dataset.cancel); if (o) o.cancel_bar = S.t; await refresh().catch((er) => { S.note = er.message; }); return render(); }
+  if (t.dataset.load) return loadRun(+t.dataset.load);
+  if (t.dataset.del) { const id = +t.dataset.del; if (S.confirm !== id) { S.confirm = id; return render(); } S.confirm = null; try { await apiDelete('/api/runs/' + id); S.savedNote = 'Deleted.'; await loadSaved(); } catch (er) { S.savedNote = er.message; } return render(); }
+  const a = t.dataset.act; if (!a) return;
+  if (a === 'new') return newMarket();
+  if (a === 'reset') return reset();
+  if (a === 'step1') return advance(1);
+  if (a === 'step5') return advance(5);
+  if (a === 'step21') return advance(21);
+  if (a === 'play') return play();
+  if (a === 'sug') { const A = S.acct.account; S.ticket.qty = Math.max(1, Math.floor((A.equity * 0.01) / S.an.sizing.risk_per_lot)); return render(); }
+  if (a === 'place' || a === 'close') {
+    const A = S.acct.account; let side = S.ticket.side, qty = +S.ticket.qty, type = S.ticket.type, price = S.ticket.price === '' ? null : +S.ticket.price;
+    if (a === 'close') { side = A.qty > 0 ? 'sell' : 'buy'; qty = Math.abs(A.qty); type = 'market'; price = null; }
+    if (!Number.isInteger(qty) || qty < 1) { S.note = 'Lots must be a whole number of at least 1.'; return render(); }
+    if (type !== 'market' && !(price > 0)) { S.note = 'Enter a price for stop and limit orders.'; return render(); }
+    S.orders.push({ id: S.nextId++, bar: S.t, side, qty, type, price }); S.note = 'Order placed. It fills at the next day’s open: press Step ▶.';
+    await refresh().catch((er) => { S.note = er.message; S.orders.pop(); }); return render();
+  }
+  if (a === 'save-trade') return saveRun('trade');
+  if (a === 'save-bt') return saveRun('backtest');
+  if (a === 'bt-run') return runBacktest();
+  if (a === 'bt-mc') return runMc();
+  if (a === 'bt-sw') return runSweep();
+});
+document.addEventListener('change', async (e) => {
+  const t = e.target;
+  if (t.dataset.f) { const k = t.dataset.f; if (k === 'key') S.key = t.value; if (k === 'seed') S.seed = Math.max(0, Math.min(2147483647, Math.floor(+t.value) || 0)); if (k === 'days') S.days = +t.value; return loadMarket(false); }
+  if (t.dataset.show) { S.show[t.dataset.show] = t.checked; return render(); }
+  if (t.dataset.bf) {
+    const k = t.dataset.bf, B = S.bt;
+    if (k === 'strategy') { B.strategy = t.value; B.params = {}; B.res = null; return render(); }
+    if (k === 'short') B.short = t.checked; else if (k === 'n') B.n = Math.max(5, Math.min(300, Math.floor(+t.value) || 100)); else B[k] = +t.value;
+    return;
+  }
+  if (t.dataset.bp) { S.bt.params[t.dataset.bp] = +t.value; }
+});
+document.addEventListener('input', (e) => { const t = e.target; if (t.dataset.sname !== undefined) { S.saveName = t.value; return; } if (t.dataset.tk) { S.ticket[t.dataset.tk] = t.dataset.tk === 'qty' ? Math.max(0, Math.floor(+t.value) || 0) : t.value; } });
+let rz = 0; window.addEventListener('resize', () => { cancelAnimationFrame(rz); rz = requestAnimationFrame(() => draw(false)); });
+
+(async () => {
+  const h = location.hash.slice(1); if (TABS.some((x) => x[0] === h)) S.tab = h;
+  try {
+    const [c, s] = await Promise.all([api('/api/commodities'), api('/api/strategies')]);
+    S.cat = Object.assign(c, { strategies: s.strategies }); S.key = c.commodities.some((x) => x.key === 'wti') ? 'wti' : c.commodities[0].key;
+  } catch (e) { $('#app').innerHTML = `<p class="muted">Could not reach the Commodity Desk server: ${esc(e.message)}. Start it with <code>python3 commodity_sim/app.py</code>.</p>`; return; }
+  await loadSaved(); await loadMarket(false);
+})();
+})();
+</script>
+</body>
+</html>

@@ -17,3 +17,4 @@ jobs:
           node-version: "22"
       - run: pip install openpyxl
       - run: python3 -m unittest discover -s tests -t .
+      - run: python3 -m unittest discover -s commodity_sim/tests -t commodity_sim

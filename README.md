@@ -51,3 +51,5 @@ Optional local backend (saved runs and a live-price history in SQLite, `python3 
 ## Simplifications
 
 Constant tenor each step (no roll-down), undiscounted P&L, one RFQ per step at fixed size, instant hedge fills at fair ± street half-spread, illustrative levels, randomly generated demo scenario (seed 277).
+
+A separate project, **Commodity Desk** (simulated agriculture, energy and metals markets with analysis, Buy/Sell/Hold signals, paper trading and a backtester), lives in `commodity_sim/`: see `commodity_sim/README.md`.

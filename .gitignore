@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 live_snapshot.json
 data/
+commodity_sim/data/
